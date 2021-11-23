@@ -1,0 +1,24 @@
+{
+  "name": "@hangxingliu/ts-openapi",
+  "description": "OpenAPI utils for Typescript",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "LiuYue",
+    "email": "hangxingliu@gmail.com",
+    "url": "https://github.com/hangxingliu"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.9",
+    "rimraf": "^3.0.2",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.2"
+  },
+  "dependencies": {
+    "reflect-metadata": "^0.1.13"
+  }
+}
