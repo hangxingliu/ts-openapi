@@ -12,14 +12,18 @@ function getDecorator(schema: unknown) {
     });
     Reflect.defineMetadata(OpenApiSchemaMetaKey, types, instance);
   };
-  return decorator;
+  return decorator as any;
 }
 
 /**
  * Decorator
  */
-export function OpenApiObject(ref: string | Class, schema?: Partial<JSONSchemaObject>) {
-  schema = { ...(schema || {}), type: "object", $ref: ref };
+export function OpenApiObject(ref?: string | Class | symbol, schema?: Partial<JSONSchemaObject>) {
+  schema = { ...(schema || {}), type: "object" };
+  if (ref) {
+    if (typeof ref === "symbol") schema.type = ref;
+    else schema.$ref = ref;
+  }
   return getDecorator(schema);
 }
 
@@ -27,15 +31,16 @@ export function OpenApiObject(ref: string | Class, schema?: Partial<JSONSchemaOb
  * Decorator
  */
 export function OpenApiArray(
-  itemRef: string | Class,
+  itemRef?: string | Class | symbol,
   schema?: Partial<JSONSchemaObject>,
   itemSchema?: Partial<JSONSchemaObject>
 ) {
   const mergedItemSchema: JSONSchemaObject = {};
-  if (schema) {
-    if (schema.items) Object.assign(mergedItemSchema, schema.items);
-    if (itemSchema) Object.assign(mergedItemSchema, itemSchema);
-    mergedItemSchema.$ref = itemRef;
+  if (schema && schema.items) Object.assign(mergedItemSchema, schema.items);
+  if (itemSchema) Object.assign(mergedItemSchema, itemSchema);
+  if (itemRef) {
+    if (typeof itemRef === "symbol") mergedItemSchema.type = itemRef;
+    else mergedItemSchema.$ref = itemRef;
   }
   schema = { ...(schema || {}), type: "array", items: mergedItemSchema };
   return getDecorator(schema);
@@ -44,14 +49,15 @@ export function OpenApiArray(
 /**
  * Decorator
  */
-export function OpenApiSchema(type: JSONSchemaType, schema?: JSONSchemaObject): any {
-  schema = { type, ...(schema || {}) }
+export function OpenApiSchema(type: JSONSchemaType | symbol, schema?: JSONSchemaObject): any {
+  schema = { type, ...(schema || {}) };
   return getDecorator(schema);
 }
 
 export function getOpenApiSchemas(Class: { new (): any }) {
+  type Item = { propKey?: string; schema: any };
   return {
-    wrap: (Reflect.getMetadata(OpenApiSchemaMetaKey, Class) || []) as any[],
-    fields: (Reflect.getMetadata(OpenApiSchemaMetaKey, new Class()) || []) as any[],
+    wrap: (Reflect.getMetadata(OpenApiSchemaMetaKey, Class) || []) as Item[],
+    fields: (Reflect.getMetadata(OpenApiSchemaMetaKey, new Class()) || []) as Item[],
   };
 }

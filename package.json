@@ -10,6 +10,8 @@
     "url": "https://github.com/hangxingliu"
   },
   "scripts": {
+    "ts": "node -r ts-node/register",
+    "ts:inspect": "node --inspect-brk -r ts-node/register",
     "build": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {

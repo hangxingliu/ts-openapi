@@ -19,14 +19,41 @@ export type JSONSchemaFormat =
   | "iri-reference";
 
 export type JSONSchemaObject = {
+  allOf?: JSONSchemaObject[];
+  anyOf?: JSONSchemaObject[];
+  oneOf?: JSONSchemaObject[];
+
   title?: string;
-  type?: JSONSchemaType | Class;
-  properties?: { [x: string]: JSONSchemaType }
+  type?: JSONSchemaType | Class | symbol;
+  properties?: { [x: string]: JSONSchemaObject }
   format?: JSONSchemaFormat;
   required?: boolean | string[];
   description?: string;
   items?: JSONSchemaObject;
+
   $ref?: string | Class;
+
+  enum?: any[];
+
+  minLength?: number;
+  maxLength?: number;
+  minItems?: number;
+  maxItems?: number;
+
+  multipleOf?: number;
+  maximum?: number;
+  exclusiveMaximum?: number;
+  minimum?: number;
+  exclusiveMinimum?: number;
+
+  pattern?: string;
+  uniqueItems?: boolean;
+
+  maxProperties?: number;
+  minProperties?: number;
+  additionalProperties?: number;
+
+  default?: any;
 };
 
 export type OpenApiComponentType =

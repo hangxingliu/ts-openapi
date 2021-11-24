@@ -1,5 +1,5 @@
 import { getOpenApiSchemas } from "./decorator";
-import { Class, JSONSchemaObject, OpenApiComponentType } from "./types";
+import type { Class, JSONSchemaObject, OpenApiComponentType } from "./types";
 
 export class OpenApiComponentsManager {
   private readonly map = new Map<string, unknown>();
@@ -20,7 +20,7 @@ export class OpenApiComponentsManager {
       const { schema } = wrap[0];
       if (schema) Object.assign(base, schema);
     }
-    if (!base.type) base.type = 'object';
+    if (!base.type) base.type = "object";
     if (!base.properties) base.properties = {};
     if (!base.required) base.required = [];
 
@@ -28,14 +28,22 @@ export class OpenApiComponentsManager {
     if (typeof base.$ref === "function") base.$ref = this.getRef(base.$ref);
 
     for (let i = 0; i < fields.length; i++) {
-      const { propKey, schema } = fields[i];
+      const field = fields[i];
+      const propKey = field.propKey;
+      const schema: JSONSchemaObject = field.schema;
       if (!propKey) continue;
 
-      if (typeof schema.$ref === "function") schema.$ref = this.getRef(schema.$ref);
+      if (typeof schema.$ref === "function") {
+        schema.$ref = this.getRef(schema.$ref);
+      } else {
+        if (schema.type === "array" && typeof schema.items?.$ref === "function")
+          schema.items.$ref = this.getRef(schema.items.$ref);
+      }
       if (schema.required === true) {
         (base.required as any[]).push(propKey);
         delete schema.required;
       }
+      base.properties[propKey] = schema;
     }
 
     this.map.set(componentName, base);
