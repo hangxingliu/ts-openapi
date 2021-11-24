@@ -25,7 +25,7 @@ export type JSONSchemaObject = {
 
   title?: string;
   type?: JSONSchemaType | Class | symbol;
-  properties?: { [x: string]: JSONSchemaObject }
+  properties?: { [x: string]: JSONSchemaObject };
   format?: JSONSchemaFormat;
   required?: boolean | string[];
   description?: string;
@@ -55,6 +55,101 @@ export type JSONSchemaObject = {
 
   default?: any;
 };
+
+export type OpenApiSchemaObject = JSONSchemaObject & {
+  example?: any;
+  externalDocs?: OpenApiExternalDocumentObject;
+  deprecated?: boolean;
+  nullable?: boolean;
+}
+
+export type OpenApiPathsObject = { [path: string]: OpenApiPathItemObject };
+export type OpenApiPathItemObject = {
+  $ref?: string;
+  summary?: string;
+  description?: string;
+
+  get?: OpenApiOperationObject;
+  put?: OpenApiOperationObject;
+  post?: OpenApiOperationObject;
+  delete?: OpenApiOperationObject;
+  options?: OpenApiOperationObject;
+  head?: OpenApiOperationObject;
+  patch?: OpenApiOperationObject;
+  trace?: OpenApiOperationObject;
+
+  servers?: OpenApiServerObject[];
+  parameters?: OpenApiParameterObject[];
+};
+
+export type OpenApiMediaTypesMap = { [mediaType: string]: OpenApiMediaTypeObject };
+export type OpenApiMediaTypeObject = {
+  schema?: OpenApiSchemaObject;
+  example?: any;
+  examples?: OpenApiExamplesMap;
+  encoding?: any;
+}
+
+export type OpenApiOperationObject = {
+  tags?: string[];
+  summary?: string;
+  description?: string;
+  externalDocs?: OpenApiExternalDocumentObject;
+  operationId?: string;
+  parameters?: OpenApiParameterObject[];
+  requestBody?: OpenApiRequestBodyObject;
+  responses?: { default?: OpenApiResponseObject, [statusCode: string]: OpenApiResponseObject };
+  callbacks?: { [x: string]: any };
+  deprecated?: boolean;
+  security?: OpenApiSecurityRequirementObject[];
+  servers?: OpenApiServerObject[];
+};
+
+export type OpenApiSecurityRequirementObject = {
+  [name: string]: string[];
+}
+
+export type OpenApiRequestBodyObject = {
+  description: string;
+  content: OpenApiMediaTypesMap;
+  required?: boolean;
+}
+
+export type OpenApiResponseObject = {
+  description: string;
+  headers?: OpenApiHeadersMap;
+  content?: OpenApiMediaTypesMap;
+  links?: any;
+}
+
+export type OpenApiParameterIn = 'query' | 'header' | 'path' | 'cookie';
+export type OpenApiParameterObject = {
+  name: string;
+  in: OpenApiParameterIn;
+
+  /** schema.type */
+  schemaType?: string;
+  description?: string;
+  required?: boolean;
+  deprecated?: boolean;
+  allowEmptyValue?: boolean;
+
+  schema?: OpenApiSchemaObject;
+  exmaple?: any;
+  exmaples?: OpenApiExamplesMap
+};
+
+export type OpenApiHeadersMap = { [x: string]: OpenApiHeaderObject };
+export type OpenApiHeaderObject = Omit<OpenApiParameterObject, 'name' | 'in'>;
+
+
+export type OpenApiExamplesMap = { [x: string]: OpenApiExampleObject };
+export type OpenApiExampleObject = {
+  value: any;
+  summary?: string;
+  description?: string;
+  externalValue?: string;
+}
 
 export type OpenApiComponentType =
   | "schemas"

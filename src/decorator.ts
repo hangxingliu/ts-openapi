@@ -1,3 +1,4 @@
+import { OpenApiSchemaObject } from ".";
 import type { Class, JSONSchemaObject, JSONSchemaType } from "./types";
 
 export const OpenApiSchemaMetaKey = Symbol("OpenApiSchemaSymbol");
@@ -18,7 +19,7 @@ function getDecorator(schema: unknown) {
 /**
  * Decorator
  */
-export function OpenApiObject(ref?: string | Class | symbol, schema?: Partial<JSONSchemaObject>) {
+export function OpenApiObject(ref?: string | Class | symbol, schema?: Partial<OpenApiSchemaObject>) {
   schema = { ...(schema || {}), type: "object" };
   if (ref) {
     if (typeof ref === "symbol") schema.type = ref;
@@ -32,8 +33,8 @@ export function OpenApiObject(ref?: string | Class | symbol, schema?: Partial<JS
  */
 export function OpenApiArray(
   itemRef?: string | Class | symbol,
-  schema?: Partial<JSONSchemaObject>,
-  itemSchema?: Partial<JSONSchemaObject>
+  schema?: Partial<OpenApiSchemaObject>,
+  itemSchema?: Partial<OpenApiSchemaObject>
 ) {
   const mergedItemSchema: JSONSchemaObject = {};
   if (schema && schema.items) Object.assign(mergedItemSchema, schema.items);
@@ -49,7 +50,7 @@ export function OpenApiArray(
 /**
  * Decorator
  */
-export function OpenApiSchema(type: JSONSchemaType | symbol, schema?: JSONSchemaObject): any {
+export function OpenApiSchema(type: JSONSchemaType | symbol, schema?: OpenApiSchemaObject): any {
   schema = { type, ...(schema || {}) };
   return getDecorator(schema);
 }
