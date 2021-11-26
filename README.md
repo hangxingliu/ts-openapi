@@ -6,3 +6,6 @@ npm install @hangxingliu/ts-optnapi
 yarn add @hangxingliu/ts-openapi
 ```
 
+## Usage
+
+See [test/project/index.ts](test/project/index.ts)
