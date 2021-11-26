@@ -1,31 +1,40 @@
-import {
+import type {
   OpenApiExamplesMap,
   OpenApiExternalDocumentObject,
   OpenApiOperationObject,
   OpenApiParameterObject,
   OpenApiPathItemObject,
-} from ".";
-import type { JSONSchemaObject, OpenApiParameterIn, OpenApiPathsObject } from "./types";
+  JSONSchemaObject,
+  OpenApiParameterIn,
+  OpenApiPathsObject,
+  OpenApiHeadersMap,
+  OpenApiMediaTypeObject,
+  OpenApiResponseObject,
+} from "./types";
+import { findOpenApiParamIndex, isRefObj, resolveOpenApiHeadersMap } from "./utils";
 
 const jsonMediaType = "application/json";
 const statusTextMap = new Map<string, string>([
   ["200", "OK"],
+  ["2XX", "Successful"],
   ["201", "Created"],
   ["202", "Accepted"],
+  ["200", "OK"],
+  ["4XX", "Client Error"],
   ["400", "Bad Request"],
   ["401", "Unauthorized"],
   ["403", "Forbidden"],
   ["404", "Not Found"],
   ["405", "Method Not Allowed"],
+  ["5XX", "Server Error"],
   ["500", "Internal Server Error"],
   ["502", "Bad Gateway"],
   ["503", "Service Unavailable"],
 ]);
 
-class _OpenApiPathsEditor {
+export class _OpenApiPathEditor {
   /** @see https://swagger.io/specification/#path-item-object */
   readonly path: OpenApiPathItemObject;
-
   readonly op: OpenApiOperationObject;
 
   readonly warnings: Array<string>;
@@ -76,30 +85,38 @@ class _OpenApiPathsEditor {
     }
   }
 
-  baseInfo(operationId: string, summary: string, description?: string) {
+  baseInfo = (operationId: string, summary: string, description?: string) => {
     Object.assign(this.op, { operationId, summary, description });
     return this;
-  }
+  };
 
-  externalDocs(docs: OpenApiExternalDocumentObject) {
+  externalDocs = (docs: OpenApiExternalDocumentObject) => {
     this.op.externalDocs = docs;
     return this;
-  }
+  };
 
-  tags(tags: string[]) {
+  tags = (tags: string[]) => {
     if (!tags || tags.length <= 0) return;
     if (!this.op.tags) this.op.tags = [];
     this.op.tags.push(...tags);
     return this;
+  };
+
+  get parameters() {
+    if (!this.op.parameters) this.op.parameters = [];
+    return this.op.parameters;
+  }
+  get responses() {
+    if (!this.op.responses) this.op.responses = {};
+    return this.op.responses;
   }
 
-  query(qs: Array<string | Omit<OpenApiParameterObject, "in">>) {
+  query = (qs: Array<string | Omit<OpenApiParameterObject, "in">>) => {
     if (!qs || qs.length <= 0) return;
-    if (!this.op.parameters) this.op.parameters = [];
 
-    const list = this.op.parameters;
+    const list = this.parameters;
     const push = (p: OpenApiParameterObject) => {
-      const index = list.findIndex((item) => item.name === p.name && item.in === "query");
+      const index = findOpenApiParamIndex(list, p.name, p.in);
       if (index >= 0) list[index] = p;
       else list.push(p);
     };
@@ -124,7 +141,7 @@ class _OpenApiPathsEditor {
       push(q);
     }
     return this;
-  }
+  };
 
   private _initRequestBody = () => {
     if (!this.op.requestBody) {
@@ -136,7 +153,7 @@ class _OpenApiPathsEditor {
     }
   };
 
-  jsonRequest(ref: string[], exampleValue?: any) {
+  jsonRequest = (ref: string[], exampleValue?: any) => {
     this._initRequestBody();
 
     const { content } = this.op.requestBody;
@@ -148,7 +165,7 @@ class _OpenApiPathsEditor {
     }
 
     const examples: OpenApiExamplesMap = {};
-    if (typeof exampleValue !== 'undefined')
+    if (typeof exampleValue !== "undefined")
       examples.default = {
         summary: "Example json request payload",
         value: exampleValue,
@@ -159,68 +176,83 @@ class _OpenApiPathsEditor {
       examples,
     };
     return this;
-  }
+  };
 
-  addJsonRequestExample(exampleName: string, exampleValue: any) {
+  addJsonRequestExample = (exampleName: string, exampleValue: any) => {
     this._initRequestBody();
 
     const { content } = this.op.requestBody;
 
     const examples = { [exampleName]: exampleValue };
     if (content[jsonMediaType]) {
-      const data = content[jsonMediaType];
+      const data = content[jsonMediaType] as OpenApiMediaTypeObject;
       if (data.examples) Object.assign(data.examples, examples);
       else data.examples = examples;
     } else {
       content[jsonMediaType] = { schema: {}, examples };
     }
     return this;
-  }
+  };
 
-  private _initResponses = (statusCode: number) => {
+  private _initResponses = (statusCode: string) => {
     if (!this.op.responses) {
       this.op.responses = {};
     }
     const resps = this.op.responses;
-    const st = String(statusCode || "");
-    if (!resps[st])
-      resps[st] = {
-        description: statusTextMap.get(st) || st,
+    if (!resps[statusCode])
+      resps[statusCode] = {
+        description: statusTextMap.get(statusCode) || statusCode,
         content: {},
       };
-    return resps[st];
+    return resps[statusCode] as OpenApiResponseObject;
   };
 
-  jsonResponse(statusCode: number, ref: string, exampleValue?: any) {
+  /**
+   * @param statusCode can be '2XX', '4XX', ...
+   */
+  jsonResponse = (statusCode: string, ref: string[], exampleValue?: any) => {
     const resp = this._initResponses(statusCode);
-    resp.content[jsonMediaType] = {
-      schema: ref ? { $ref: ref } : {},
-    };
-    if (typeof exampleValue !== 'undefined') {
-      resp.content[jsonMediaType].examples = {
+
+    let schema: any;
+    if (ref?.length > 0) {
+      schema = ref.length > 1 ? { oneOf: ref.map(($ref) => ({ $ref })) } : { $ref: ref[0] };
+    } else {
+      schema = {};
+    }
+    resp.content[jsonMediaType] = { schema };
+    if (typeof exampleValue !== "undefined") {
+      (resp.content[jsonMediaType] as OpenApiMediaTypeObject).examples = {
         default: {
-          summary: 'Example json response body',
+          summary: "Example json response body",
           value: exampleValue,
-        }
-      }
+        },
+      };
     }
     return this;
-  }
+  };
+
+  responseHeaders = (statusCode: string, headers: OpenApiHeadersMap) => {
+    const resp = this._initResponses(statusCode);
+    resp.headers = resolveOpenApiHeadersMap(headers);
+    return this;
+  };
 }
 
 const validMethods = new Set(["get", "put", "post", "delete", "options", "head", "patch", "trace", "use"]);
 
+export type EditFuncInOpenApiPathsEditor = (
+  method: string,
+  uri: string,
+  opts?: {
+    pathParameters?: Array<string | OpenApiParameterObject>;
+    isExpressUri?: boolean;
+  }
+) => _OpenApiPathEditor;
+
 export class OpenApiPathsEditor {
   readonly paths: OpenApiPathsObject = {};
 
-  edit(
-    method: string,
-    uri: string,
-    opts?: {
-      pathParameters?: Array<string | OpenApiParameterObject>;
-      isExpressUri?: boolean;
-    }
-  ) {
+  edit: EditFuncInOpenApiPathsEditor = (method, uri, opts) => {
     let pathParameters: Array<string | OpenApiParameterObject> = [];
     if (opts?.isExpressUri === false) {
       pathParameters = uri.match(/\{[\w-]+\}/g);
@@ -235,9 +267,10 @@ export class OpenApiPathsEditor {
     method = String(method || "").toLowerCase();
     if (!validMethods.has(method)) throw new Error(`Invalid http method "${method}" for OpenApiPathsEditor`);
 
-    const editor = new _OpenApiPathsEditor(this.paths, method, uri, pathParameters);
+    const editor = new _OpenApiPathEditor(this.paths, method, uri, pathParameters);
     return editor;
-  }
+  };
+
   getPaths() {
     const result: OpenApiPathsObject = {};
     Object.keys(this.paths).forEach((key) => {
@@ -262,4 +295,3 @@ export class OpenApiPathsEditor {
     return result;
   }
 }
-export type OpenApiPathEditor = _OpenApiPathsEditor;

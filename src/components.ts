@@ -1,21 +1,28 @@
-import { getOpenApiSchemas } from "./decorator";
-import type { Class, JSONSchemaObject, OpenApiComponentType } from "./types";
+import { getOpenApiMetadata } from "./decorator";
+import type {
+  Class,
+  JSONSchemaObject,
+  OpenApiComponentsObject,
+  OpenApiHeaderObject,
+  OpenApiParameterObject,
+  OpenApiSecuritySchemeObject,
+  OpenApiResponseObject,
+} from "./types";
 
-export class OpenApiComponentsManager {
+export class OpenApiSchemasManager {
   private readonly map = new Map<string, unknown>();
-  constructor(readonly schemaType: OpenApiComponentType = "schemas") {}
 
-  getRef(Component: Class): string {
-    const name = Component.name;
-    if (!this.map.has(name)) return this.addComponent(Component);
-    return `#/components/${this.schemaType}/${name}`;
+  getRef(schemaObject: Class, name?: string): string {
+    if (typeof name !== "string" || !name) name = schemaObject.name;
+    if (!this.map.has(name)) return this.add(schemaObject, name);
+    return `#/components/schemas/${name}`;
   }
 
-  addComponent(Component: Class): string {
-    const { wrap, fields } = getOpenApiSchemas(Component);
+  add(schemaObject: Class, schemaName?: string): string {
+    const { wrap, fields } = getOpenApiMetadata(schemaObject);
 
-    const componentName = Component.name;
-    const base: JSONSchemaObject = { title: componentName };
+    if (typeof schemaName !== "string" || !schemaName) schemaName = schemaObject.name;
+    const base: JSONSchemaObject = { title: schemaName };
     if (wrap?.length > 0) {
       const { schema } = wrap[0];
       if (schema) Object.assign(base, schema);
@@ -46,20 +53,178 @@ export class OpenApiComponentsManager {
       base.properties[propKey] = schema;
     }
 
-    this.map.set(componentName, base);
-    return `#/components/${this.schemaType}/${componentName}`;
+    this.map.set(schemaName, base);
+    return `#/components/schemas/${schemaName}`;
   }
 
-  getComponents() {
-    const componentItems = Array.from(this.map.entries()).sort((a, b) => {
+  getComponents(): Partial<OpenApiComponentsObject> {
+    const items = Array.from(this.map.entries()).sort((a, b) => {
       return a[0] > b[0] ? 1 : -1;
     });
-
-    const components = {} as { [x: string]: unknown };
-    for (let i = 0; i < componentItems.length; i++) {
-      const [key, value] = componentItems[i];
-      components[key] = value;
+    const schemas = {} as { [x: string]: unknown };
+    for (let i = 0; i < items.length; i++) {
+      const [key, value] = items[i];
+      schemas[key] = value;
     }
-    return { [this.schemaType]: components };
+    return { schemas };
+  }
+}
+
+/**
+ * Parameters
+ */
+export class OpenApiParametersManager {
+  private readonly map = new Map<string, OpenApiParameterObject>();
+  private readonly group = new Map<string, string[]>();
+
+  get(name: string): OpenApiParameterObject[] {
+    if (this.group.has(name)) {
+      const names = this.group.get(name);
+      return names.map((it) => this.map.get(it));
+    }
+    if (this.map.has(name)) return [this.map.get(name)];
+    return [];
+  }
+  getRef(name: string): string[] {
+    if (this.group.has(name)) {
+      const names = this.group.get(name);
+      return names.map((it) => `#/components/parameters/${it}`);
+    }
+    if (this.map.has(name)) return [`#/components/parameters/${name}`];
+    return [];
+  }
+  add(name: string, parameter: OpenApiParameterObject, replace = false): string {
+    if (this.map.has(name)) {
+      if (this.group.has(name)) throw new Error(`can't add parameter "${name}", because it is existed names group`);
+      if (!replace) return;
+    }
+    if (!parameter.schema && !parameter.content) parameter.schema = {};
+    this.map.set(name, parameter);
+    return `#/components/parameters/${name}`;
+  }
+  addGroup(groupName: string, names: string[]) {
+    for (let i = 0; i < names.length; i++) {
+      if (!this.map.has(names[i])) throw new Error(`Invalid parameter "${names[i]}" for group "${groupName}"`);
+    }
+    this.group.set(groupName, names);
+  }
+  getComponents(): Partial<OpenApiComponentsObject> {
+    const items = Array.from(this.map.entries()).sort((a, b) => {
+      return a[0] > b[0] ? 1 : -1;
+    });
+    const parameters = {} as { [x: string]: OpenApiParameterObject };
+    for (let i = 0; i < items.length; i++) {
+      const [key, value] = items[i];
+      parameters[key] = value;
+    }
+    return { parameters };
+  }
+}
+
+/**
+ * Headers
+ */
+export class OpenApiHeadersManager {
+  private readonly map = new Map<string, OpenApiHeaderObject>();
+  private readonly group = new Map<string, string[]>();
+
+  get(name: string): OpenApiHeaderObject[] {
+    if (this.group.has(name)) {
+      const names = this.group.get(name);
+      return names.map((it) => this.map.get(it));
+    }
+    if (this.map.has(name)) return [this.map.get(name)];
+    return [];
+  }
+  getRef(name: string): string[] {
+    if (this.group.has(name)) {
+      const names = this.group.get(name);
+      return names.map((it) => `#/components/headers/${it}`);
+    }
+    if (this.map.has(name)) return [`#/components/headers/${name}`];
+    return [];
+  }
+  add(name: string, header: OpenApiHeaderObject, replace = false): string {
+    if (this.map.has(name)) {
+      if (this.group.has(name)) throw new Error(`can't add header "${name}", because it is existed names group`);
+      if (!replace) return;
+    }
+    this.map.set(name, header);
+    return `#/components/headers/${name}`;
+  }
+  addGroup(groupName: string, names: string[]) {
+    for (let i = 0; i < names.length; i++) {
+      if (!this.map.has(names[i])) throw new Error(`Invalid header "${names[i]}" for group "${groupName}"`);
+    }
+    this.group.set(groupName, names);
+  }
+  getComponents(): Partial<OpenApiComponentsObject> {
+    const items = Array.from(this.map.entries()).sort((a, b) => {
+      return a[0] > b[0] ? 1 : -1;
+    });
+    const headers = {} as { [x: string]: OpenApiHeaderObject };
+    for (let i = 0; i < items.length; i++) {
+      const [key, value] = items[i];
+      headers[key] = value;
+    }
+    return { headers };
+  }
+}
+
+/**
+ * Responses
+ */
+export class OpenApiResponsesManager {
+  private readonly map = new Map<string, OpenApiResponseObject>();
+  private readonly statusCode = new Map<string, string[]>();
+
+  get(name: string): { resp: OpenApiResponseObject; status: string[] } {
+    if (this.map.has(name)) return { resp: this.map.get(name), status: this.statusCode.get(name) };
+  }
+  getRef(name: string): string {
+    if (this.map.has(name)) return `#/components/responses/${name}`;
+  }
+
+  add(name: string, resp: OpenApiResponseObject, statusCodes: string[], replace = false): string {
+    if (this.map.has(name)) {
+      if (!replace) return;
+    }
+    this.map.set(name, resp);
+    this.statusCode.set(name, statusCodes);
+    return `#/components/responses/${name}`;
+  }
+  getComponents(): Partial<OpenApiComponentsObject> {
+    const items = Array.from(this.map.entries()).sort((a, b) => {
+      return a[0] > b[0] ? 1 : -1;
+    });
+    const responses = {} as { [x: string]: OpenApiResponseObject };
+    for (let i = 0; i < items.length; i++) {
+      const [key, value] = items[i];
+      responses[key] = value;
+    }
+    return { responses };
+  }
+}
+
+/**
+ * Security Schemes
+ */
+export class OpenApiSecuritySchemesManager {
+  private readonly map = new Map<string, OpenApiSecuritySchemeObject>();
+
+  add(name: string, scheme: OpenApiSecuritySchemeObject) {
+    if (this.map.has(name)) return;
+    this.map.set(name, scheme);
+  }
+  getComponents(): Partial<OpenApiComponentsObject> {
+    const items = Array.from(this.map.entries()).sort((a, b) => {
+      return a[0] > b[0] ? 1 : -1;
+    });
+    const securitySchemes = {} as { [x: string]: OpenApiSecuritySchemeObject };
+    for (let i = 0; i < items.length; i++) {
+      const [key, value] = items[i];
+      securitySchemes[key] = value;
+    }
+    return { securitySchemes };
   }
 }

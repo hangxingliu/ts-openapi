@@ -1,4 +1,3 @@
-import { OpenApiHeadersMap, OpenApiResponseObject } from ".";
 import {
   OpenApiParametersManager,
   OpenApiResponsesManager,
@@ -8,7 +7,7 @@ import {
 import { ApplyParameterPriority } from "./enum";
 import { OpenApiPathsEditor, _OpenApiPathEditor, EditFuncInOpenApiPathsEditor } from "./paths";
 import { OpenApiTagsManager } from "./tags";
-import type { Class, OpenApiDocument, PackageInfoForOpenAPI } from "./types";
+import type { Class, OpenApiDocument, PackageInfoForOpenAPI , OpenApiHeadersMap, OpenApiResponseObject} from "./types";
 import { isRefObj, resolveOpenApiHeadersMap } from "./utils";
 
 const jsonMediaType = "application/json";

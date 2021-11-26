@@ -1,5 +1,4 @@
-import { OpenApiHeaderObject, OpenApiHeadersMap } from ".";
-import { OpenApiRef, OpenApiParameterObject, OpenApiParameterIn } from "./types";
+import type { OpenApiRef, OpenApiParameterObject, OpenApiParameterIn, OpenApiHeaderObject, OpenApiHeadersMap } from "./types";
 
 export function isRefObj(obj: unknown): obj is OpenApiRef {
   return obj && typeof obj["$ref"] === "string";

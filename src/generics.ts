@@ -1,4 +1,4 @@
-import { getOpenApiSchemas, OpenApiSchemaMetaKey } from "./decorator";
+import { getOpenApiMetadata, OpenApiSchemaMetaKey } from "./decorator";
 import type { Class, JSONSchemaObject } from "./types";
 
 const GenericsT1 = Symbol("GenericsT1");
@@ -33,7 +33,7 @@ export function resolveGenericClass(GenericClass: Class, Types: Class[], opts?: 
   const C = class NewClass {};
   Object.defineProperty(C, "name", { value: finalName });
 
-  const { wrap, fields } = getOpenApiSchemas(GenericClass);
+  const { wrap, fields } = getOpenApiMetadata(GenericClass);
   Reflect.defineMetadata(OpenApiSchemaMetaKey, wrap, C);
 
   const nextFields = [];
