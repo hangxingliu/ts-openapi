@@ -1,4 +1,15 @@
+export type PackageInfoForOpenAPI = {
+  openapi?: {
+    title?: string;
+    description?: string;
+  };
+  version: string;
+  author?: any;
+  license?: any;
+};
+
 export type Class = { name: string; new (): any };
+export type OpenApiRef = { $ref: string };
 
 export type JSONSchemaType = "string" | "number" | "integer" | "object" | "array" | "boolean" | "null";
 export type JSONSchemaFormat =
@@ -61,7 +72,7 @@ export type OpenApiSchemaObject = JSONSchemaObject & {
   externalDocs?: OpenApiExternalDocumentObject;
   deprecated?: boolean;
   nullable?: boolean;
-}
+};
 
 export type OpenApiPathsObject = { [path: string]: OpenApiPathItemObject };
 export type OpenApiPathItemObject = {
@@ -82,13 +93,13 @@ export type OpenApiPathItemObject = {
   parameters?: OpenApiParameterObject[];
 };
 
-export type OpenApiMediaTypesMap = { [mediaType: string]: OpenApiMediaTypeObject };
+export type OpenApiMediaTypesMap = { [mediaType: string]: OpenApiMediaTypeObject | OpenApiRef };
 export type OpenApiMediaTypeObject = {
   schema?: OpenApiSchemaObject;
   example?: any;
   examples?: OpenApiExamplesMap;
   encoding?: any;
-}
+};
 
 export type OpenApiOperationObject = {
   tags?: string[];
@@ -96,9 +107,12 @@ export type OpenApiOperationObject = {
   description?: string;
   externalDocs?: OpenApiExternalDocumentObject;
   operationId?: string;
-  parameters?: OpenApiParameterObject[];
+  parameters?: Array<OpenApiParameterObject | OpenApiRef>;
   requestBody?: OpenApiRequestBodyObject;
-  responses?: { default?: OpenApiResponseObject, [statusCode: string]: OpenApiResponseObject };
+  responses?: {
+    default?: OpenApiResponseObject | OpenApiRef;
+    [statusCode: string]: OpenApiResponseObject | OpenApiRef;
+  };
   callbacks?: { [x: string]: any };
   deprecated?: boolean;
   security?: OpenApiSecurityRequirementObject[];
@@ -107,22 +121,22 @@ export type OpenApiOperationObject = {
 
 export type OpenApiSecurityRequirementObject = {
   [name: string]: string[];
-}
+};
 
 export type OpenApiRequestBodyObject = {
   description: string;
   content: OpenApiMediaTypesMap;
   required?: boolean;
-}
+};
 
 export type OpenApiResponseObject = {
   description: string;
   headers?: OpenApiHeadersMap;
   content?: OpenApiMediaTypesMap;
   links?: any;
-}
+};
 
-export type OpenApiParameterIn = 'query' | 'header' | 'path' | 'cookie';
+export type OpenApiParameterIn = "query" | "header" | "path" | "cookie";
 export type OpenApiParameterObject = {
   name: string;
   in: OpenApiParameterIn;
@@ -135,13 +149,13 @@ export type OpenApiParameterObject = {
   allowEmptyValue?: boolean;
 
   schema?: OpenApiSchemaObject;
-  exmaple?: any;
-  exmaples?: OpenApiExamplesMap
+  content?: OpenApiMediaTypesMap;
+  example?: any;
+  examples?: OpenApiExamplesMap;
 };
 
 export type OpenApiHeadersMap = { [x: string]: OpenApiHeaderObject };
-export type OpenApiHeaderObject = Omit<OpenApiParameterObject, 'name' | 'in'>;
-
+export type OpenApiHeaderObject = Omit<OpenApiParameterObject, "name" | "in">;
 
 export type OpenApiExamplesMap = { [x: string]: OpenApiExampleObject };
 export type OpenApiExampleObject = {
@@ -149,7 +163,43 @@ export type OpenApiExampleObject = {
   summary?: string;
   description?: string;
   externalValue?: string;
-}
+};
+
+export type OpenApiSecuritySchemeType = "apiKey" | "http" | "oauth2" | "openIdConnect";
+export type OpenApiSecuritySchemeIn = "query" | "header" | "cookie";
+export type OpenApiSecuritySchemeObject = {
+  type: OpenApiSecuritySchemeType;
+  name: string;
+  in: OpenApiSecuritySchemeIn;
+  description?: string;
+  scheme?: string;
+  bearerFormat?: string;
+  flows?: {
+    implicit: OpenApiOAuthFlowObject;
+    password: OpenApiOAuthFlowObject;
+    clientCredentials: OpenApiOAuthFlowObject;
+    authorizationCode: OpenApiOAuthFlowObject;
+  };
+  openIdConnectUrl?: string;
+};
+export type OpenApiOAuthFlowObject = {
+  authorizationUrl: string;
+  tokenUrl: string;
+  refreshUrl?: string;
+  scopes: { [x: string]: string };
+};
+
+export type OpenApiComponentsObject = {
+  schemas?: { [name: string]: OpenApiSchemaObject };
+  responses?: { [name: string]: any };
+  parameters?: { [name: string]: OpenApiParameterObject };
+  examples?: { [name: string]: any };
+  requestBodies?: { [name: string]: any };
+  headers?: { [name: string]: OpenApiHeaderObject };
+  securitySchemes?: { [name: string]: OpenApiSecuritySchemeObject };
+  links?: { [name: string]: any };
+  callbacks?: { [name: string]: any };
+};
 
 export type OpenApiComponentType =
   | "schemas"
@@ -209,9 +259,9 @@ export type OpenApiDocument = {
   openapi: string;
   info: OpenApiInfoObject;
   servers?: OpenApiServerObject[];
-  paths?: any;
-  components?: any;
-  security?: any[];
+  paths?: OpenApiPathsObject;
+  components?: OpenApiComponentsObject;
+  security?: { [name: string]: string[] }[];
   tags: OpenApiTagObject[];
   externalDocs?: OpenApiExternalDocumentObject;
 };
