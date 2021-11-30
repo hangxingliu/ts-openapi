@@ -1,0 +1,39 @@
+# Visual Studio Code settings
+.vscode
+
+.github
+
+# Mac OSX files
+._*
+.DS_Store
+
+# Log files
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test files
+/test
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Archived files
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# dotenv environment variables file
+.env
+
+# cache directory
+.cache
