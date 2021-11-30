@@ -46,13 +46,14 @@ export class OpenApiSchemasManager {
         if (schema.type === "array" && typeof schema.items?.$ref === "function")
           schema.items.$ref = this.getRef(schema.items.$ref);
       }
-      if (schema.required === true) {
-        (base.required as any[]).push(propKey);
+      if (typeof schema.required === "boolean") {
+        if (schema.required === true) (base.required as any[]).push(propKey);
         delete schema.required;
       }
       base.properties[propKey] = schema;
     }
 
+    if (Array.isArray(base.required) && base.required.length <= 0) delete base.required;
     this.map.set(schemaName, base);
     return `#/components/schemas/${schemaName}`;
   }
