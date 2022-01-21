@@ -18,4 +18,5 @@ export {
 export { SchemaGenerics, OptionsForResolveGenericClass, resolveGenericClass } from "./generics";
 export { OpenApiPathsEditor, _OpenApiPathEditor } from "./paths";
 export { OpenApiTagsManager } from "./tags";
+export { getSchemaFromTypeORMColumn, TypeORMEntityTransformer } from "./typeorm"
 export * from "./types";

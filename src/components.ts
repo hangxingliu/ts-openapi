@@ -1,4 +1,10 @@
 import { getOpenApiMetadata } from "./decorator";
+import {
+  getSchemaFromTypeORMColumn,
+  TypeORMColumnMetadataArgs,
+  TypeORMEntityTransformer,
+  TypeORMMetadataArgsStorage,
+} from "./typeorm";
 import type {
   Class,
   JSONSchemaObject,
@@ -10,7 +16,14 @@ import type {
 } from "./types";
 
 export class OpenApiSchemasManager {
+  private typeORMStorage: TypeORMMetadataArgsStorage;
+  private typeORMTransformer: TypeORMEntityTransformer;
   private readonly map = new Map<string, unknown>();
+
+  useTypeORM(storage: TypeORMMetadataArgsStorage, transformer?: TypeORMEntityTransformer) {
+    this.typeORMStorage = storage;
+    this.typeORMTransformer = transformer;
+  }
 
   getRef(schemaObject: Class, name?: string): string {
     if (typeof name !== "string" || !name) name = schemaObject.name;
@@ -20,6 +33,17 @@ export class OpenApiSchemasManager {
 
   add(schemaObject: Class, schemaName?: string): string {
     const { wrap, fields } = getOpenApiMetadata(schemaObject);
+
+    const _columns = this.typeORMStorage?.filterColumns(schemaObject);
+    const columns = new Map<string, TypeORMColumnMetadataArgs>();
+    if (Array.isArray(_columns)) {
+      for (let i = 0; i < _columns.length; i++) {
+        const column = _columns[i];
+        columns.set(column.propertyName, column);
+      }
+    }
+
+    const transformer = this.typeORMTransformer;
 
     if (typeof schemaName !== "string" || !schemaName) schemaName = schemaObject.name;
     const base: JSONSchemaObject = { title: schemaName };
@@ -36,22 +60,50 @@ export class OpenApiSchemasManager {
 
     for (let i = 0; i < fields.length; i++) {
       const field = fields[i];
-      const propKey = field.propKey;
-      const schema: JSONSchemaObject = field.schema;
+      let propKey = field.propKey;
       if (!propKey) continue;
 
+      let schema: JSONSchemaObject = field.schema;
       if (typeof schema.$ref === "function") {
         schema.$ref = this.getRef(schema.$ref);
       } else {
         if (schema.type === "array" && typeof schema.items?.$ref === "function")
           schema.items.$ref = this.getRef(schema.items.$ref);
       }
+
+      const column = columns.get(propKey);
+      if (column) {
+        columns.delete(propKey);
+        if (typeof transformer?.column === "function") {
+          const r = transformer.column(schemaObject, column, schema);
+          if (!r) continue;
+          if (r.propertyName) propKey = r.propertyName;
+          delete r.propertyName;
+          schema = r;
+        }
+      }
+
       if (typeof schema.required === "boolean") {
         if (schema.required === true) (base.required as any[]).push(propKey);
         delete schema.required;
       }
       base.properties[propKey] = schema;
     }
+
+    columns.forEach((column) => {
+      let schema = getSchemaFromTypeORMColumn(column);
+      if (typeof transformer?.column === "function") schema = transformer.column(schemaObject, column, schema);
+      if (!schema) return;
+
+      const propKey = schema.propertyName;
+      delete schema.propertyName;
+      if (!propKey) return;
+      if (typeof schema.required === "boolean") {
+        if (schema.required === true) (base.required as any[]).push(propKey);
+        delete schema.required;
+      }
+      base.properties[propKey] = schema;
+    });
 
     if (Array.isArray(base.required) && base.required.length <= 0) delete base.required;
     this.map.set(schemaName, base);

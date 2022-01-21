@@ -1,0 +1,47 @@
+{
+  "schemas": {
+    "User": {
+      "title": "User",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "bigint"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "age": {
+          "type": "number"
+        },
+        "avatar": {
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "size": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url",
+            "size"
+          ]
+        },
+        "signupAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "userName",
+        "age",
+        "signupAt"
+      ]
+    }
+  }
+}
