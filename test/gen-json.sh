@@ -52,7 +52,10 @@ done <<< "$(find_entrypoints)"
 if has_param "--ci" "${@}"; then
   echo "[.] git status";
   git_status;
-  test -n "$(git_status)" && throw "Somethings changed";
+  if test -n "$(git_status)"; then
+    git diff .;
+    throw "Somethings changed";
+  fi
 fi
 
 echo "[+] Done!"
