@@ -35,4 +35,5 @@ jobs:
       - run: yarn install
       - run: yarn run build
       - run: yarn run test
+      - run: ./test/gen-json.sh --install --silent --ci
       - run: npm pack --dryrun

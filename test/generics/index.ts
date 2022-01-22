@@ -1,8 +1,10 @@
 import "reflect-metadata";
 
-import { OpenApiArray, OpenApiSchemasManager, OpenApiObject, OpenApiSchema } from "../src";
-import { getOpenApiSchemasFromClass } from "../src/utils/metadata"
-import { resolveGenericClass, SchemaGenerics } from "../src/generics";
+import { OpenApiArray, OpenApiSchemasManager, OpenApiObject, OpenApiSchema } from "../../src";
+import { getOpenApiSchemasFromClass } from "../../src/utils/metadata";
+import { resolveGenericClass, SchemaGenerics } from "../../src/generics";
+import { writeFileSync } from "fs";
+import { join } from "path";
 
 @OpenApiObject()
 class Pagination {
@@ -28,10 +30,9 @@ class Person {
   age: string;
 }
 
-@OpenApiObject({ description: 'query input' })
+@OpenApiObject({ description: "query input" })
 class QueryInput {
-
-  @OpenApiSchema('string')
+  @OpenApiSchema("string")
   keyword: string;
 }
 
@@ -44,4 +45,4 @@ console.log("Resolved schema:", getOpenApiSchemasFromClass(Resolved));
 
 const components = new OpenApiSchemasManager();
 components.add(Resolved);
-console.log(JSON.stringify(components.getComponents(), null, 2));
+writeFileSync(join(__dirname, "components.json"), JSON.stringify(components.getComponents(), null, 2));

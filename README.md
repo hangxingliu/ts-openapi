@@ -1,5 +1,7 @@
 # Typescript OpenAPI Utils
 
+[![ci](https://github.com/hangxingliu/ts-openapi/actions/workflows/ci.yaml/badge.svg?event=push)](https://github.com/hangxingliu/ts-openapi/actions/workflows/ci.yaml)
+
 ``` bash
 npm install @hangxingliu/ts-openapi
 # or

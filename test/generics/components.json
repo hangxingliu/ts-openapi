@@ -1,0 +1,51 @@
+{
+  "schemas": {
+    "Pagination__Person_QueryInput": {
+      "title": "Pagination__Person_QueryInput",
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Person"
+          }
+        },
+        "page": {
+          "type": "integer"
+        },
+        "firstItem": {
+          "$ref": "#/components/schemas/Person"
+        },
+        "input": {
+          "$ref": "#/components/schemas/QueryInput",
+          "type": "object"
+        }
+      },
+      "required": [
+        "input"
+      ]
+    },
+    "Person": {
+      "title": "Person",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "age": {
+          "type": "integer"
+        }
+      }
+    },
+    "QueryInput": {
+      "title": "QueryInput",
+      "type": "object",
+      "description": "query input",
+      "properties": {
+        "keyword": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
