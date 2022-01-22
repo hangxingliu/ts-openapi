@@ -1,19 +1,19 @@
-import { getOpenApiMetadata } from "./decorator";
-import {
-  getSchemaFromTypeORMColumn,
-  TypeORMColumnMetadataArgs,
-  TypeORMEntityTransformer,
-  TypeORMMetadataArgsStorage,
-} from "./typeorm";
+import type { TypeORMEntityTransformer, TypeORMMetadataArgsStorage } from "./typeorm/base";
+import type { Class } from "./types/base";
 import type {
-  Class,
-  JSONSchemaObject,
   OpenApiComponentsObject,
   OpenApiHeaderObject,
   OpenApiParameterObject,
   OpenApiSecuritySchemeObject,
   OpenApiResponseObject,
-} from "./types";
+  OpenApiSchemaObject,
+} from "./types/openapi";
+import { resolveTypeORMEntityClass } from "./typeorm";
+import { OpenApiResolvedFlags } from "./types/reflect-metadata";
+import { getSchemaFromClassMetadata } from "./utils/class-metadata-to-schema";
+import { getOpenApiNameFromClass, hasOpenApiResolvedFlags } from "./utils/metadata";
+import { resolveOpenApiSchema } from "./utils/resolve-schema";
+import { isClass } from "is-class";
 
 export class OpenApiSchemasManager {
   private typeORMStorage: TypeORMMetadataArgsStorage;
@@ -26,87 +26,35 @@ export class OpenApiSchemasManager {
   }
 
   getRef(schemaObject: Class, name?: string): string {
-    if (typeof name !== "string" || !name) name = schemaObject.name;
+    if (typeof name !== "string" || !name) name = getOpenApiNameFromClass(schemaObject);
     if (!this.map.has(name)) return this.add(schemaObject, name);
     return `#/components/schemas/${name}`;
   }
 
   add(schemaObject: Class, schemaName?: string): string {
-    const { wrap, fields } = getOpenApiMetadata(schemaObject);
+    const originalName = getOpenApiNameFromClass(schemaObject);
 
-    const _columns = this.typeORMStorage?.filterColumns(schemaObject);
-    const columns = new Map<string, TypeORMColumnMetadataArgs>();
-    if (Array.isArray(_columns)) {
-      for (let i = 0; i < _columns.length; i++) {
-        const column = _columns[i];
-        columns.set(column.propertyName, column);
-      }
+    if (this.typeORMStorage && !hasOpenApiResolvedFlags(schemaObject, OpenApiResolvedFlags.TypeORM)) {
+      schemaObject = resolveTypeORMEntityClass(schemaObject, {
+        storage: this.typeORMStorage,
+        transformer: this.typeORMTransformer,
+        name: schemaName,
+      });
     }
+    const result = getSchemaFromClassMetadata(schemaObject);
+    if (typeof schemaName !== "string" || !schemaName) schemaName = result.name;
 
-    const transformer = this.typeORMTransformer;
+    const schema: OpenApiSchemaObject = {
+      title: originalName,
+      type: "object",
+    };
+    Object.assign(schema, result.schema);
+    this.map.set(schemaName, schema);
 
-    if (typeof schemaName !== "string" || !schemaName) schemaName = schemaObject.name;
-    const base: JSONSchemaObject = { title: schemaName };
-    if (wrap?.length > 0) {
-      const { schema } = wrap[0];
-      if (schema) Object.assign(base, schema);
-    }
-    if (!base.type) base.type = "object";
-    if (!base.properties) base.properties = {};
-    if (!base.required) base.required = [];
-
-    // get ref string from object, save this object into manager if it is not existed!
-    if (typeof base.$ref === "function") base.$ref = this.getRef(base.$ref);
-
-    for (let i = 0; i < fields.length; i++) {
-      const field = fields[i];
-      let propKey = field.propKey;
-      if (!propKey) continue;
-
-      let schema: JSONSchemaObject = field.schema;
-      if (typeof schema.$ref === "function") {
-        schema.$ref = this.getRef(schema.$ref);
-      } else {
-        if (schema.type === "array" && typeof schema.items?.$ref === "function")
-          schema.items.$ref = this.getRef(schema.items.$ref);
-      }
-
-      const column = columns.get(propKey);
-      if (column) {
-        columns.delete(propKey);
-        if (typeof transformer?.column === "function") {
-          const r = transformer.column(schemaObject, column, schema);
-          if (!r) continue;
-          if (r.propertyName) propKey = r.propertyName;
-          delete r.propertyName;
-          schema = r;
-        }
-      }
-
-      if (typeof schema.required === "boolean") {
-        if (schema.required === true) (base.required as any[]).push(propKey);
-        delete schema.required;
-      }
-      base.properties[propKey] = schema;
-    }
-
-    columns.forEach((column) => {
-      let schema = getSchemaFromTypeORMColumn(column);
-      if (typeof transformer?.column === "function") schema = transformer.column(schemaObject, column, schema);
-      if (!schema) return;
-
-      const propKey = schema.propertyName;
-      delete schema.propertyName;
-      if (!propKey) return;
-      if (typeof schema.required === "boolean") {
-        if (schema.required === true) (base.required as any[]).push(propKey);
-        delete schema.required;
-      }
-      base.properties[propKey] = schema;
+    resolveOpenApiSchema(schema, (ref) => {
+      if (isClass(ref)) return this.getRef(ref);
+      return null;
     });
-
-    if (Array.isArray(base.required) && base.required.length <= 0) delete base.required;
-    this.map.set(schemaName, base);
     return `#/components/schemas/${schemaName}`;
   }
 

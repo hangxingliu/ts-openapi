@@ -1,6 +1,7 @@
 import "reflect-metadata";
 
-import { getOpenApiMetadata, OpenApiArray, OpenApiSchemasManager, OpenApiObject, OpenApiSchema } from "../src";
+import { OpenApiArray, OpenApiSchemasManager, OpenApiObject, OpenApiSchema } from "../src";
+import { getOpenApiSchemasFromClass } from "../src/utils/metadata"
 import { resolveGenericClass, SchemaGenerics } from "../src/generics";
 
 @OpenApiObject()
@@ -27,19 +28,19 @@ class Person {
   age: string;
 }
 
-@OpenApiSchema('object', { description: 'query input' })
+@OpenApiObject({ description: 'query input' })
 class QueryInput {
 
-  @OpenApiSchema('string', {})
+  @OpenApiSchema('string')
   keyword: string;
 }
 
-console.log(getOpenApiMetadata(Pagination));
+console.log(getOpenApiSchemasFromClass(Pagination));
 
 const Resolved = resolveGenericClass(Pagination, [Person, QueryInput]);
 console.log(Pagination, Person, Resolved);
 
-console.log("Resolved schema:", getOpenApiMetadata(Resolved));
+console.log("Resolved schema:", getOpenApiSchemasFromClass(Resolved));
 
 const components = new OpenApiSchemasManager();
 components.add(Resolved);

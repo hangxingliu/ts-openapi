@@ -1,0 +1,214 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "",
+    "version": "1.1.0",
+    "contact": {
+      "name": "LiuYue",
+      "email": "hangxingliu@gmail.com",
+      "url": "https://github.com/hangxingliu"
+    },
+    "license": {
+      "name": "Apache-2.0"
+    }
+  },
+  "servers": [],
+  "tags": [
+    {
+      "name": "User",
+      "description": "APIs for manage users",
+      "externalDocs": {
+        "url": "https://github.com"
+      }
+    }
+  ],
+  "components": {
+    "securitySchemes": {},
+    "schemas": {
+      "JsonResponse__404__NotFoundResponse": {
+        "title": "NotFoundResponse",
+        "type": "object",
+        "description": "response for item not found",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "message"
+        ]
+      },
+      "ListResults__User": {
+        "title": "ListResults__User",
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "current": {
+            "properties": {
+              "value": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          },
+          "token": {
+            "type": "string",
+            "description": "Token for next query"
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "User": {
+        "title": "User",
+        "type": "object",
+        "description": "User entity",
+        "properties": {
+          "userName": {
+            "type": "string",
+            "description": "User name for login",
+            "example": "admin"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address of user",
+            "format": "email",
+            "example": "test@email.com"
+          }
+        },
+        "required": [
+          "userName"
+        ]
+      }
+    },
+    "parameters": {
+      "cache_type": {
+        "name": "x-cache-type",
+        "in": "header",
+        "description": "Cache type for list",
+        "schema": {
+          "enum": [
+            "1",
+            "2",
+            "3"
+          ]
+        }
+      },
+      "keyword_for_list": {
+        "name": "keyword",
+        "in": "query",
+        "description": "Keyword for searching",
+        "schema": {}
+      },
+      "token_for_list": {
+        "name": "token",
+        "in": "query",
+        "description": "Token for pagination",
+        "example": "1:token....",
+        "schema": {}
+      }
+    },
+    "responses": {
+      "item_not_found": {
+        "description": "json response for 404",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/JsonResponse__404__NotFoundResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/users": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "operationId": "get_users",
+        "summary": "Get users",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResults__User"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/item_not_found"
+          }
+        },
+        "parameters": [
+          {
+            "name": "test",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/keyword_for_list"
+          },
+          {
+            "$ref": "#/components/parameters/token_for_list"
+          },
+          {
+            "$ref": "#/components/parameters/cache_type"
+          }
+        ]
+      },
+      "parameters": []
+    },
+    "/user/{userId}": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "operationId": "get_user_userId",
+        "summary": "Get user by userId",
+        "description": "#/components/schemas/User",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {},
+            "headers": {
+              "x-date": {
+                "schema": {},
+                "example": "2021-11-26"
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/item_not_found"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "userId",
+          "required": true,
+          "in": "path",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    }
+  }
+}

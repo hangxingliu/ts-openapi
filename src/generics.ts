@@ -1,5 +1,9 @@
-import { getOpenApiMetadata, OpenApiSchemaMetaKey } from "./decorator";
-import type { Class, JSONSchemaObject } from "./types";
+import type { Class } from "./types/base";
+import type { JSONSchemaObject } from "./types/json-schema";
+import { cloneOpenApiResolvedFlags, hasOpenApiResolvedFlags } from "./utils/metadata";
+import { resolveOpenApiSchema } from "./utils/resolve-schema";
+import { MetadataKeys, OpenApiResolvedFlags } from "./types/reflect-metadata";
+import { getSchemaFromClassMetadata } from "./utils/class-metadata-to-schema";
 
 const GenericsT1 = Symbol("GenericsT1");
 export const SchemaGenerics = {
@@ -23,56 +27,35 @@ export type OptionsForResolveGenericClass = {
 };
 
 export function resolveGenericClass(GenericClass: Class, Types: Class[], opts?: OptionsForResolveGenericClass) {
+  if (hasOpenApiResolvedFlags(GenericClass, OpenApiResolvedFlags.Genrics)) return GenericClass;
+
+  const result = getSchemaFromClassMetadata(GenericClass);
+  const schema = result.schema;
+
   let finalName = opts && opts.name;
   if (typeof finalName === "function") finalName = finalName(GenericClass, Types);
-  if (!finalName) finalName = GenericClass.name + "__" + Types.map((it) => it.name).join("_");
+  if (!finalName) finalName = result.name + "__" + Types.map((it) => it.name).join("_");
 
   let unresolved = opts && opts.unresolved;
   if (!unresolved) unresolved = {}; // {} means any type
 
   const C = class NewClass {};
   Object.defineProperty(C, "name", { value: finalName });
+  cloneOpenApiResolvedFlags(GenericClass, C, OpenApiResolvedFlags.Genrics);
 
-  const { wrap, fields } = getOpenApiMetadata(GenericClass);
-  Reflect.defineMetadata(OpenApiSchemaMetaKey, wrap, C);
-
-  const nextFields = [];
-  for (let i = 0; i < fields.length; i++) {
-    const field = fields[i];
-    let schema: JSONSchemaObject = Object.assign({}, field.schema);
-    if (typeof schema.type === "symbol") {
-      schema = getSchemaByTypeSymbol(schema);
-    } else if (schema.type === "array") {
-      if (typeof schema.items?.type === "symbol") {
-        schema.items = getSchemaByTypeSymbol(schema.items);
-      }
-    } else if (schema.type === "object") {
-      const ps = schema.properties || {};
-      const pNames = Object.keys(ps);
-      for (let i = 0; i < pNames.length; i++) {
-        const pName = pNames[i];
-        const p = ps[pName];
-        if (p && typeof p.type === "symbol") ps[pName] = getSchemaByTypeSymbol(p);
-      }
-    }
-    nextFields.push({ propKey: field.propKey, schema });
-  }
-  Reflect.defineMetadata(OpenApiSchemaMetaKey, nextFields, C.prototype);
+  const final = { schema: resolveOpenApiSchema(schema, resolver) };
+  Reflect.defineMetadata(MetadataKeys.schema, [final], C);
   return C;
 
-  function getSchemaByTypeSymbol(schema: any) {
-    const index = typeIndexMap.get(schema.type);
+  function resolver(ref: unknown) {
+    if (typeof ref !== "symbol") return ref;
+    const index = typeIndexMap.get(ref);
     if (index >= 0) {
       const T = Types[index];
-      if (T) {
-        schema.$ref = T;
-        delete schema.type;
-        return schema;
-      }
+      if (T) return T;
+      return null;
+    } else {
+      return ref;
     }
-    const result = Object.assign({}, schema);
-    delete schema.type;
-    Object.assign(schema, unresolved);
-    return result;
   }
 }

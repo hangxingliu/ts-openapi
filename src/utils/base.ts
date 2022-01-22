@@ -1,16 +1,20 @@
-import type { OpenApiRef, OpenApiParameterObject, OpenApiParameterIn, OpenApiHeaderObject, OpenApiHeadersMap } from "./types";
+import type { OpenApiHeaderObject, OpenApiHeadersMap, OpenApiParameterIn, OpenApiParameterObject, OpenApiRef } from "../types/openapi";
+
+export function iterateObject<T extends any>(
+  obj: { [x: string | number]: T },
+  callback: (key: string, value: T) => any
+) {
+  if (!obj || Object.prototype.toString.call(obj) !== "[object Object]") return;
+  Object.keys(obj).forEach(key => callback(key, obj[key]));
+}
 
 export function isRefObj(obj: unknown): obj is OpenApiRef {
-  return obj && typeof obj["$ref"] === "string";
+  if (!obj) return false;
+  const ref = obj['$ref'];
+  if (ref !== null && ref !== undefined && ref !== false) return true;
+  return false;
 }
 
-export function findOpenApiRefIndex(list: Array<unknown>, ref: string): number {
-  for (let i = 0; i < list.length; i++) {
-    const it = list[i];
-    if (isRefObj(it) && it.$ref === ref) return i;
-  }
-  return -1;
-}
 
 export function findOpenApiParamIndex(
   list: Array<OpenApiParameterObject | OpenApiRef>,
@@ -27,13 +31,15 @@ export function findOpenApiParamIndex(
   return -1;
 }
 
+
 export function resolveOpenApiHeader(header: OpenApiHeaderObject): OpenApiHeaderObject {
   if (!header) return { schema: {} };
-
   const result: OpenApiHeaderObject = header.schema || header.content ? {} : { schema: {} };
   Object.assign(result, header);
   return result;
 }
+
+
 export function resolveOpenApiHeadersMap(headers: OpenApiHeadersMap): OpenApiHeadersMap {
   if (!headers) return {};
   const keys = Object.keys(headers);
@@ -43,3 +49,4 @@ export function resolveOpenApiHeadersMap(headers: OpenApiHeadersMap): OpenApiHea
   }
   return headers;
 }
+

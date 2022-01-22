@@ -1,4 +1,5 @@
-import { Class, OpenApiSchemaObject } from "./types";
+import type { Class } from "../types/base";
+import type { OpenApiSchemaObject } from "../types/openapi";
 
 export type TypeORMColumnOptions = {
   type?: any;
@@ -18,6 +19,7 @@ export type TypeORMColumnOptions = {
   enumName?: string;
   array?: boolean;
   generated?: any;
+  [x: string]: any;
 };
 
 export type TypeORMColumnMetadataArgs = {
@@ -25,15 +27,27 @@ export type TypeORMColumnMetadataArgs = {
   propertyName: string;
   mode: any;
   options: TypeORMColumnOptions;
+  [x: string]: any;
+};
+
+export type TypeORMTableMetadataArgs = {
+  target: any;
+  /**
+   * Table's name. If name is not set then table's name will be generated from target's name.
+   */
+  name?: string;
+  type: any;
+  [x: string]: any;
 };
 
 export type TypeORMMetadataArgsStorage = {
+  filterTables(target: Function | string): TypeORMTableMetadataArgs[];
   filterColumns(target: Function | string): TypeORMColumnMetadataArgs[];
 };
 
 export type TypeORMColumnTransformerResult = OpenApiSchemaObject & {
   /** Generated new property name */
-  propertyName?: string;
+  newPropertyName?: string;
 };
 
 export interface TypeORMEntityTransformer {
@@ -44,12 +58,15 @@ export interface TypeORMEntityTransformer {
   ): TypeORMColumnTransformerResult;
 }
 
-const bigintColumnTypes = new Set([
+export const bigintColumnTypes = new Set([
+  //
   "int64",
   "bigint",
   "unsigned big int",
 ]);
-const intColumnTypes = new Set([
+
+export const intColumnTypes = new Set([
+  //
   "int",
   "int2",
   "int4",
@@ -59,7 +76,9 @@ const intColumnTypes = new Set([
   "smallint",
   "mediumint",
 ]);
-const numberColumnTypes = new Set([
+
+export const numberColumnTypes = new Set([
+  //
   "dec",
   "decimal",
   "smalldecimal",
@@ -73,7 +92,9 @@ const numberColumnTypes = new Set([
   "real",
   "double precision",
 ]);
-const stringColumnTypes = new Set([
+
+export const stringColumnTypes = new Set([
+  //
   "character varying",
   "varying character",
   "char varying",
@@ -97,7 +118,9 @@ const stringColumnTypes = new Set([
   "citext",
   "longtext",
 ]);
-const dateColumnTypes = new Set([
+
+export const dateColumnTypes = new Set([
+  //
   "datetime",
   "datetime2",
   "datetimeoffset",
@@ -105,47 +128,13 @@ const dateColumnTypes = new Set([
   "time with time zone",
   "time without time zone",
   "timestamp",
-  "timestamp without time zone" ,
-  "timestamp with time zone" ,
-  "timestamp with local time zone"
+  "timestamp without time zone",
+  "timestamp with time zone",
+  "timestamp with local time zone",
 ]);
-const booleanColumnTypes = new Set([
+
+export const booleanColumnTypes = new Set([
+  //
   "boolean",
   "bool",
 ]);
-
-export function getSchemaFromTypeORMColumn(column: TypeORMColumnMetadataArgs) {
-  const result: TypeORMColumnTransformerResult = {
-    propertyName: column.propertyName,
-  };
-  const columnOptions = column.options || {};
-  const type = columnOptions.type;
-  if (typeof type === "string") {
-    if (bigintColumnTypes.has(type)) {
-      result.type = 'string';
-      result.description = 'bigint';
-    } else if (intColumnTypes.has(type)) {
-      result.type = 'integer';
-    } else if (numberColumnTypes.has(type)) {
-      result.type = 'number';
-    } else if (stringColumnTypes.has(type)) {
-      result.type = 'string';
-    } else if (booleanColumnTypes.has(type)) {
-      result.type = 'boolean';
-    } else if (dateColumnTypes.has(type)) {
-      result.type = 'string';
-      result.format = 'date-time';
-    }
-  } else {
-    if (type === String) { result.type = 'string'; }
-    else if (type === Boolean) { result.type = 'boolean'; }
-    else if (type === Number) { result.type = 'number'; }
-    else if (type === Date) {
-      result.type = 'string';
-      result.format = 'date-time';
-    }
-  }
-  if (columnOptions.nullable !== true)
-    result.required = true;
-  return result;
-}

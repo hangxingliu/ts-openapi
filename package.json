@@ -12,16 +12,22 @@
   },
   "scripts": {
     "ts": "node -r ts-node/register",
+    "test": "ts-node src/index.spec.ts",
     "ts:inspect": "node --inspect-brk -r ts-node/register",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist"
   },
   "devDependencies": {
     "@types/node": "^16.11.9",
+    "colors": "^1.4.0",
+    "glob": "^7.2.0",
     "rimraf": "^3.0.2",
     "ts-node": "^10.4.0",
     "typescript": "^4.5.2"
   },
   "dependencies": {
+    "is-class": "^0.0.9",
+    "is-plain-object": "^5.0.0",
     "reflect-metadata": "^0.1.13"
   }
 }

@@ -1,4 +1,4 @@
-import { OpenApiTagObject } from "./types";
+import type { OpenApiTagObject } from "./types/openapi";
 
 export class OpenApiTagsManager {
   private readonly tags = new Map<string, OpenApiTagObject>();

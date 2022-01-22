@@ -1,6 +1,6 @@
 {
   "schemas": {
-    "User": {
+    "Entity_User": {
       "title": "User",
       "type": "object",
       "properties": {

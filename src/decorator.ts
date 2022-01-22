@@ -1,78 +1,69 @@
-import type { OpenApiSchemaObject, Class, JSONSchemaObject, JSONSchemaType } from "./types";
-
-export const OpenApiSchemaMetaKey = Symbol("OpenApiSchemaSymbol");
+import "reflect-metadata";
+import type { OpenApiSchemaInput, OpenApiSchemaObject } from "./types/openapi";
+import { MetadataKeys } from "./types/reflect-metadata";
+import { parseOpenApiSchemaInput } from "./utils/parse-schema-input";
 
 function getSchemaDecorator(schema: unknown) {
   const decorator: MethodDecorator = (instance, propKey) => {
-    let types: unknown[] = Reflect.getOwnMetadata(OpenApiSchemaMetaKey, instance);
+    let types: unknown[] = Reflect.getOwnMetadata(MetadataKeys.schema, instance);
     if (!types) types = [];
     types.push({
       propKey,
       schema,
     });
-    Reflect.defineMetadata(OpenApiSchemaMetaKey, types, instance);
+    Reflect.defineMetadata(MetadataKeys.schema, types, instance);
   };
   return decorator as any;
 }
 
-export function OpenApiString(schema?: Partial<OpenApiSchemaObject>) {
-  schema = { ...(schema || {}), type: "string" };
+export function OpenApiName(componentName: string) {
+  return Reflect.metadata(MetadataKeys.componentName, componentName);
+}
+
+/** @alias OpenApiProperty */
+export function OpenApiSchema(schema?: OpenApiSchemaInput): any {
+  return getSchemaDecorator(parseOpenApiSchemaInput(schema));
+}
+
+/** @alias OpenApiSchema */
+export function OpenApiProperty(schema?: OpenApiSchemaInput): any {
+  return getSchemaDecorator(parseOpenApiSchemaInput(schema));
+}
+
+export function OpenApiUUID(schema?: OpenApiSchemaObject) {
+  schema = { type: "string", format: 'uuid', ...(schema || {}) };
   return getSchemaDecorator(schema);
 }
 
-export function OpenApiInt(schema?: Partial<OpenApiSchemaObject>) {
-  schema = { ...(schema || {}), type: "integer" };
+export function OpenApiBoolean(schema?: OpenApiSchemaObject) {
+  schema = { type: "boolean", ...(schema || {}) };
   return getSchemaDecorator(schema);
 }
 
-export function OpenApiNumber(schema?: Partial<OpenApiSchemaObject>) {
-  schema = { ...(schema || {}), type: "number" };
+export function OpenApiString(schema?: OpenApiSchemaObject) {
+  schema = { type: "string", ...(schema || {}) };
   return getSchemaDecorator(schema);
 }
 
-/**
- * Decorator
- */
-export function OpenApiObject(ref?: string | Class | symbol, schema?: Partial<OpenApiSchemaObject>) {
-  schema = { ...(schema || {}), type: "object" };
-  if (ref) {
-    if (typeof ref === "symbol") schema.type = ref;
-    else schema.$ref = ref;
-  }
+export function OpenApiInt(schema?: OpenApiSchemaObject) {
+  schema = { type: "integer", ...(schema || {}) };
   return getSchemaDecorator(schema);
 }
 
-/**
- * Decorator
- */
-export function OpenApiArray(
-  itemRef?: string | Class | symbol,
-  schema?: Partial<OpenApiSchemaObject>,
-  itemSchema?: Partial<OpenApiSchemaObject>
-) {
-  const mergedItemSchema: JSONSchemaObject = {};
-  if (schema && schema.items) Object.assign(mergedItemSchema, schema.items);
-  if (itemSchema) Object.assign(mergedItemSchema, itemSchema);
-  if (itemRef) {
-    if (typeof itemRef === "symbol") mergedItemSchema.type = itemRef;
-    else mergedItemSchema.$ref = itemRef;
-  }
-  schema = { ...(schema || {}), type: "array", items: mergedItemSchema };
+export function OpenApiNumber(schema?: OpenApiSchemaObject) {
+  schema = { type: "number", ...(schema || {}) };
   return getSchemaDecorator(schema);
 }
 
-/**
- * Decorator
- */
-export function OpenApiSchema(type: JSONSchemaType | symbol, schema?: OpenApiSchemaObject): any {
-  schema = { type, ...(schema || {}) };
-  return getSchemaDecorator(schema);
+export function OpenApiObject(schema1?: OpenApiSchemaInput, schema2?: OpenApiSchemaObject) {
+  const finalSchema = parseOpenApiSchemaInput(schema1);
+  if (!finalSchema.type) finalSchema.type = "object";
+  if (schema2) Object.assign(finalSchema, schema2);
+  return getSchemaDecorator(finalSchema);
 }
 
-export function getOpenApiMetadata(Class: { new (): any }) {
-  type Item = { propKey?: string; schema: any };
-  return {
-    wrap: (Reflect.getMetadata(OpenApiSchemaMetaKey, Class) || []) as Item[],
-    fields: (Reflect.getMetadata(OpenApiSchemaMetaKey, new Class()) || []) as Item[],
-  };
+export function OpenApiArray(item?: OpenApiSchemaInput, schema?: OpenApiSchemaObject) {
+  const finalSchema = { type: "array", items: parseOpenApiSchemaInput(item) };
+  if (schema) Object.assign(finalSchema, schema);
+  return getSchemaDecorator(finalSchema);
 }

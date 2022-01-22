@@ -1,4 +1,5 @@
 export { OpenAPIDocumentBuilder } from "./builder";
+export { OpenApiPathsEditor, _OpenApiPathEditor } from "./paths";
 
 export {
   OpenApiHeadersManager,
@@ -6,17 +7,14 @@ export {
   OpenApiSecuritySchemesManager,
   OpenApiParametersManager,
 } from "./components";
-export {
-  OpenApiObject,
-  OpenApiArray,
-  OpenApiSchema,
-  OpenApiString,
-  OpenApiInt,
-  OpenApiNumber,
-  getOpenApiMetadata,
-} from "./decorator";
-export { SchemaGenerics, OptionsForResolveGenericClass, resolveGenericClass } from "./generics";
-export { OpenApiPathsEditor, _OpenApiPathEditor } from "./paths";
 export { OpenApiTagsManager } from "./tags";
-export { getSchemaFromTypeORMColumn, TypeORMEntityTransformer } from "./typeorm"
-export * from "./types";
+
+export *  from "./decorator";
+
+export { SchemaGenerics, OptionsForResolveGenericClass, resolveGenericClass } from "./generics";
+export { getSchemaFromTypeORMColumn, resolveTypeORMEntityClass } from "./typeorm"
+export { TypeORMEntityTransformer } from "./typeorm/base"
+
+export * from "./types/base";
+export * from "./types/json-schema";
+export * from "./types/openapi";

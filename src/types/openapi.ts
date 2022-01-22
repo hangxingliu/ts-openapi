@@ -1,71 +1,9 @@
-export type PackageInfoForOpenAPI = {
-  openapi?: {
-    title?: string;
-    description?: string;
-  };
-  version: string;
-  author?: any;
-  license?: any;
-};
+import type { Class } from "./base";
+import type { JSONSchemaObject } from "./json-schema";
 
-export type Class = { name: string; new (): any };
-export type OpenApiRef = { $ref: string };
+export type OpenApiRef = { $ref: unknown };
 
-export type JSONSchemaType = "string" | "number" | "integer" | "object" | "array" | "boolean" | "null";
-export type JSONSchemaFormat =
-  | "date-time"
-  | "date"
-  | "time"
-  | "duration"
-  | "email"
-  | "idn-email"
-  | "hostname"
-  | "idn-hostname"
-  | "ipv4"
-  | "ipv6"
-  | "uuid"
-  | "uri"
-  | "uri-reference"
-  | "iri"
-  | "iri-reference";
-
-export type JSONSchemaObject = {
-  allOf?: JSONSchemaObject[];
-  anyOf?: JSONSchemaObject[];
-  oneOf?: JSONSchemaObject[];
-
-  title?: string;
-  type?: JSONSchemaType | Class | symbol;
-  properties?: { [x: string]: JSONSchemaObject };
-  format?: JSONSchemaFormat;
-  required?: boolean | string[];
-  description?: string;
-  items?: JSONSchemaObject;
-
-  $ref?: string | Class;
-
-  enum?: any[];
-
-  minLength?: number;
-  maxLength?: number;
-  minItems?: number;
-  maxItems?: number;
-
-  multipleOf?: number;
-  maximum?: number;
-  exclusiveMaximum?: number;
-  minimum?: number;
-  exclusiveMinimum?: number;
-
-  pattern?: string;
-  uniqueItems?: boolean;
-
-  maxProperties?: number;
-  minProperties?: number;
-  additionalProperties?: number;
-
-  default?: any;
-};
+export type OpenApiSchemaInput = string | symbol | Class | OpenApiSchemaObject | [string] | [symbol] | [Class] | [OpenApiSchemaObject];
 
 export type OpenApiSchemaObject = JSONSchemaObject & {
   example?: any;

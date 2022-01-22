@@ -1,17 +1,19 @@
+import { OpenApiParametersManager, OpenApiResponsesManager, OpenApiSchemasManager } from "./components";
+import { ApplyParameterPriority, Class } from "./types/base";
+import type { JSONSchemaObject } from "./types/json-schema";
 import type {
   OpenApiExamplesMap,
   OpenApiExternalDocumentObject,
   OpenApiOperationObject,
   OpenApiParameterObject,
   OpenApiPathItemObject,
-  JSONSchemaObject,
   OpenApiParameterIn,
   OpenApiPathsObject,
   OpenApiHeadersMap,
   OpenApiMediaTypeObject,
   OpenApiResponseObject,
-} from "./types";
-import { findOpenApiParamIndex, isRefObj, resolveOpenApiHeadersMap } from "./utils";
+} from "./types/openapi";
+import { findOpenApiParamIndex, isRefObj, resolveOpenApiHeadersMap } from "./utils/base";
 
 const jsonMediaType = "application/json";
 const statusTextMap = new Map<string, string>([
@@ -31,6 +33,18 @@ const statusTextMap = new Map<string, string>([
   ["502", "Bad Gateway"],
   ["503", "Service Unavailable"],
 ]);
+const validMethods = new Set([
+  //
+  "get",
+  "put",
+  "post",
+  "delete",
+  "options",
+  "head",
+  "patch",
+  "trace",
+  "use",
+]);
 
 export class _OpenApiPathEditor {
   /** @see https://swagger.io/specification/#path-item-object */
@@ -39,12 +53,17 @@ export class _OpenApiPathEditor {
 
   readonly warnings: Array<string>;
 
+  private schemasManager: OpenApiSchemasManager;
+  private parametersManager: OpenApiParametersManager;
+  private responsesManager: OpenApiResponsesManager;
+
   constructor(
     paths: any,
     readonly method: string,
     readonly uri: string,
     pathParameters: Array<string | OpenApiParameterObject>
   ) {
+    if (paths === null) return; // for extends
     this.warnings = [];
 
     this.path = paths[this.uri];
@@ -83,6 +102,16 @@ export class _OpenApiPathEditor {
         this.path.parameters.push(p);
       }
     }
+  }
+
+  bindManagers(managers: {
+    schemas?: OpenApiSchemasManager;
+    parameters?: OpenApiParametersManager;
+    responses?: OpenApiResponsesManager;
+  }) {
+    if (managers.schemas) this.schemasManager = managers.schemas;
+    if (managers.parameters) this.parametersManager = managers.parameters;
+    if (managers.responses) this.responsesManager = managers.responses;
   }
 
   baseInfo = (operationId: string, summary: string, description?: string) => {
@@ -153,8 +182,14 @@ export class _OpenApiPathEditor {
     }
   };
 
-  jsonRequest = (ref: string[], exampleValue?: any) => {
+  jsonRequest = (_ref: Array<string | Class>, exampleValue?: any) => {
     this._initRequestBody();
+
+    const ref = _ref.map((it) => {
+      if (typeof it === "string") return it;
+      if (!this.schemasManager) throw new Error(`There is no OpenApiSchemasManager bound`);
+      return this.schemasManager.getRef(it);
+    });
 
     const { content } = this.op.requestBody;
     let schema: any;
@@ -165,11 +200,12 @@ export class _OpenApiPathEditor {
     }
 
     const examples: OpenApiExamplesMap = {};
-    if (typeof exampleValue !== "undefined")
+    if (exampleValue !== undefined && exampleValue !== null) {
       examples.default = {
         summary: "Example json request payload",
         value: exampleValue,
       };
+    }
 
     content[jsonMediaType] = {
       schema,
@@ -210,8 +246,14 @@ export class _OpenApiPathEditor {
   /**
    * @param statusCode can be '2XX', '4XX', ...
    */
-  jsonResponse = (statusCode: string, ref: string[], exampleValue?: any) => {
+  jsonResponse = (statusCode: string, _ref: Array<string | Class>, exampleValue?: any) => {
     const resp = this._initResponses(statusCode);
+
+    const ref = _ref.map((it) => {
+      if (typeof it === "string") return it;
+      if (!this.schemasManager) throw new Error(`There is no OpenApiSchemasManager bound`);
+      return this.schemasManager.getRef(it);
+    });
 
     let schema: any;
     if (ref?.length > 0) {
@@ -220,7 +262,7 @@ export class _OpenApiPathEditor {
       schema = {};
     }
     resp.content[jsonMediaType] = { schema };
-    if (typeof exampleValue !== "undefined") {
+    if (exampleValue !== undefined && exampleValue !== null) {
       (resp.content[jsonMediaType] as OpenApiMediaTypeObject).examples = {
         default: {
           summary: "Example json response body",
@@ -236,9 +278,47 @@ export class _OpenApiPathEditor {
     resp.headers = resolveOpenApiHeadersMap(headers);
     return this;
   };
-}
 
-const validMethods = new Set(["get", "put", "post", "delete", "options", "head", "patch", "trace", "use"]);
+  useParameterComponent = (nameOrGroupName: string, priority?: ApplyParameterPriority) => {
+    if (!this.parametersManager) throw new Error(`There is no OpenApiParametersManager bound`);
+
+    const ps = this.parametersManager.get(nameOrGroupName);
+    if (ps.length <= 0) return this;
+
+    const refs = this.parametersManager.getRef(nameOrGroupName);
+    const list = this.parameters;
+    for (let i = 0; i < ps.length; i++) {
+      const p = ps[i];
+      const ref = refs[i];
+      const existedIndex = list.findIndex((it) =>
+        isRefObj(it) ? it.$ref === ref : it.name === p.name && it.in === p.in
+      );
+      if (existedIndex >= 0) {
+        if (priority === ApplyParameterPriority.HIGH) list[existedIndex] = { $ref: ref };
+      } else {
+        list.push({ $ref: ref });
+      }
+    } // end of loop `for`
+    return this;
+  };
+
+  useResponseComponent = (name: string, priority?: ApplyParameterPriority) => {
+    if (!this.responsesManager) throw new Error(`There is no OpenApiResponsesManager bound`);
+
+    const resp = this.responsesManager.get(name);
+    if (!resp) return this;
+
+    const ref = this.responsesManager.getRef(name);
+    const resps = this.responses;
+    const existedStatusCode = new Set(Object.keys(resps));
+    for (let i = 0; i < resp.status.length; i++) {
+      const status = resp.status[i];
+      if (existedStatusCode.has(status)) if (priority !== ApplyParameterPriority.HIGH) continue;
+      resps[status] = { $ref: ref };
+    } // end of loop `for`
+    return this;
+  };
+}
 
 export type EditFuncInOpenApiPathsEditor = (
   method: string,

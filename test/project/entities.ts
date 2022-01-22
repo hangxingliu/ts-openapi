@@ -1,15 +1,15 @@
-import { OpenApiArray, OpenApiObject, OpenApiSchema, SchemaGenerics } from "../../src";
+import { OpenApiArray, OpenApiObject, OpenApiProperty, OpenApiString, SchemaGenerics } from "../../src";
 
 @OpenApiObject(null, { description: "User entity" })
 export class User {
-  @OpenApiSchema("string", {
+  @OpenApiString({
     required: true,
     description: "User name for login",
     example: "admin",
   })
   userName: string;
 
-  @OpenApiSchema("string", {
+  @OpenApiString({
     description: "Email address of user",
     format: "email",
     example: "test@email.com",
@@ -22,7 +22,15 @@ export class ListResults {
   @OpenApiArray(SchemaGenerics.T1)
   results: any[];
 
-  @OpenApiSchema("string", {
+  @OpenApiProperty({
+    properties: {
+      value: { $ref: SchemaGenerics.T1 },
+    },
+  })
+  current: any;
+
+  @OpenApiProperty({
+    type: "string",
     required: true,
     description: "Token for next query",
   })

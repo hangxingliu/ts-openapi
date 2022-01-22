@@ -5,8 +5,8 @@ import { User } from "./user";
 import { getMetadataArgsStorage } from "typeorm"
 
 const storage = getMetadataArgsStorage();
-console.log(storage.filterColumns(User));
-console.log(storage.filterColumns(User)[1].options.type === String);
+// console.log(storage.filterColumns(User));
+// console.log(storage.filterColumns(User)[1].options.type === String);
 
 const components = new OpenApiSchemasManager();
 components.useTypeORM(storage, {
@@ -14,7 +14,7 @@ components.useTypeORM(storage, {
     if (/password/i.test(column.propertyName)) return null;
     if (column.propertyName === 'avatarId') {
       return {
-        propertyName: 'avatar',
+        newPropertyName: 'avatar',
         properties: {
           url: { type: 'string' },
           size: { type: 'integer' },
