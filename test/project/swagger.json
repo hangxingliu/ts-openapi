@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "contact": {
       "name": "LiuYue",
       "email": "hangxingliu@gmail.com",
@@ -157,10 +157,10 @@
           {
             "name": "test",
             "in": "query",
-            "required": false,
             "schema": {
               "type": "string"
-            }
+            },
+            "required": false
           },
           {
             "$ref": "#/components/parameters/keyword_for_list"
@@ -201,12 +201,12 @@
       },
       "parameters": [
         {
-          "name": "userId",
-          "required": true,
           "in": "path",
+          "name": "userId",
           "schema": {
             "type": "string"
-          }
+          },
+          "required": true
         }
       ]
     }

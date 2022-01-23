@@ -12,7 +12,9 @@ import type {
   OpenApiHeadersMap,
   OpenApiMediaTypeObject,
   OpenApiResponseObject,
+  OpenApiSchemaObject,
 } from "./types/openapi";
+import type { DefaultOpenApiSchemaGetter } from "./types/openapi-extra";
 import { findOpenApiParamIndex, isRefObj, resolveOpenApiHeadersMap } from "./utils/base";
 
 const jsonMediaType = "application/json";
@@ -56,12 +58,13 @@ export class _OpenApiPathEditor {
   private schemasManager: OpenApiSchemasManager;
   private parametersManager: OpenApiParametersManager;
   private responsesManager: OpenApiResponsesManager;
+  private defaultSchemaGetter: DefaultOpenApiSchemaGetter;
 
   constructor(
     paths: any,
     readonly method: string,
     readonly uri: string,
-    pathParameters: Array<string | OpenApiParameterObject>
+    pathParameters: Array<OpenApiParameterObject>
   ) {
     if (paths === null) return; // for extends
     this.warnings = [];
@@ -86,33 +89,27 @@ export class _OpenApiPathEditor {
 
     for (let i = 0; i < pathParameters.length; i++) {
       const p = pathParameters[i];
-      if (typeof p === "string") {
-        if (pNamesInPath.has(p)) continue;
-
-        const schema: JSONSchemaObject = { type: "string" };
-        if (p.endsWith("UUID")) {
-          schema.format = "uuid";
-        }
-
-        pNamesInPath.add(p);
-        this.path.parameters.push({ name: p, required: true, in: "path", schema });
-      } else if (p.name) {
-        if (pNamesInPath.has(p.name)) continue;
-        pNamesInPath.add(p.name);
-        this.path.parameters.push(p);
-      }
+      if (pNamesInPath.has(p.name)) continue;
+      pNamesInPath.add(p.name);
+      if (typeof p.description !== "string" && typeof p.schema?.description === "string")
+        p.description = p.schema.description;
+      this.path.parameters.push(p);
     }
   }
 
-  bindManagers(managers: {
+  bindDefaultSchemaGetter = (getter: DefaultOpenApiSchemaGetter) => {
+    this.defaultSchemaGetter = getter;
+  };
+
+  bindManagers = (managers: {
     schemas?: OpenApiSchemasManager;
     parameters?: OpenApiParametersManager;
     responses?: OpenApiResponsesManager;
-  }) {
+  }) => {
     if (managers.schemas) this.schemasManager = managers.schemas;
     if (managers.parameters) this.parametersManager = managers.parameters;
     if (managers.responses) this.responsesManager = managers.responses;
-  }
+  };
 
   baseInfo = (operationId: string, summary: string, description?: string) => {
     Object.assign(this.op, { operationId, summary, description });
@@ -153,21 +150,21 @@ export class _OpenApiPathEditor {
     for (let i = 0; i < qs.length; i++) {
       const it = qs[i];
       if (typeof it === "string") {
-        push({ name: it, in: "query", required: false, schema: { type: "string" } });
+        const schema: OpenApiSchemaObject = { type: "string" };
+        if (this.defaultSchemaGetter) Object.assign(schema, this.defaultSchemaGetter("query", it));
+        push(resolveOpenApiParameter({ name: it, in: "query", schema }));
         continue;
       }
 
       if (!it.name) continue;
       const schema: JSONSchemaObject = { type: "string", ...(it.schema || {}) };
-      if (it.schemaType) {
-        schema.type = it.schemaType as any;
-      }
-      const q = Object.assign({}, it, {
-        in: "query" as OpenApiParameterIn,
-        schema,
-        required: !!it.required,
-      });
-      push(q);
+      push(
+        resolveOpenApiParameter({
+          ...it,
+          in: "query" as OpenApiParameterIn,
+          schema,
+        })
+      );
     }
     return this;
   };
@@ -325,6 +322,7 @@ export type EditFuncInOpenApiPathsEditor = (
   uri: string,
   opts?: {
     pathParameters?: Array<string | OpenApiParameterObject>;
+    defaultSchemaGetter?: DefaultOpenApiSchemaGetter;
     isExpressUri?: boolean;
   }
 ) => _OpenApiPathEditor;
@@ -347,7 +345,25 @@ export class OpenApiPathsEditor {
     method = String(method || "").toLowerCase();
     if (!validMethods.has(method)) throw new Error(`Invalid http method "${method}" for OpenApiPathsEditor`);
 
-    const editor = new _OpenApiPathEditor(this.paths, method, uri, pathParameters);
+    let getter = opts?.defaultSchemaGetter;
+    if (typeof getter !== "function") getter = undefined;
+    const pps: Array<OpenApiParameterObject> = pathParameters
+      .map((p) => {
+        if (typeof p === "string") {
+          const schema: JSONSchemaObject = { type: "string" };
+          if (getter) Object.assign(schema, getter("path", p));
+          return resolveOpenApiParameter({
+            in: "path" as OpenApiParameterIn,
+            name: p,
+            schema,
+          });
+        }
+        if (p.name) return p;
+      })
+      .filter((it) => it);
+
+    const editor = new _OpenApiPathEditor(this.paths, method, uri, pps);
+    if (getter) editor.bindDefaultSchemaGetter(opts.defaultSchemaGetter);
     return editor;
   };
 
@@ -374,4 +390,33 @@ export class OpenApiPathsEditor {
     });
     return result;
   }
+}
+
+function resolveOpenApiParameter(param: OpenApiParameterObject) {
+  if (typeof param.schema !== "object" || !param.schema) return param;
+  const { title, description, required, deprecated } = param.schema;
+  if (typeof param.description !== "string") {
+    if (typeof description === "string" && description) {
+      param.description = description;
+      delete param.schema.description;
+    } else if (typeof title === "string" && title) {
+      param.description = title;
+    }
+  }
+
+  if (typeof param.required !== "boolean" && typeof required === "boolean") {
+    param.required = required;
+    delete param.schema.required;
+  }
+
+  if (typeof param.required !== 'boolean') {
+    param.required = param.in === 'path';
+  }
+
+  if (typeof param.deprecated !== "boolean" && deprecated === true) {
+    param.deprecated = true;
+    delete param.schema.deprecated;
+  }
+
+  return param;
 }

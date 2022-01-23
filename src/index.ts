@@ -18,3 +18,4 @@ export { TypeORMEntityTransformer } from "./typeorm/base"
 export * from "./types/base";
 export * from "./types/json-schema";
 export * from "./types/openapi";
+export * from "./types/openapi-extra";

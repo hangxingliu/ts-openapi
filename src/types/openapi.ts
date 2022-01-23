@@ -3,13 +3,32 @@ import type { JSONSchemaObject } from "./json-schema";
 
 export type OpenApiRef = { $ref: unknown };
 
-export type OpenApiSchemaInput = string | symbol | Class | OpenApiSchemaObject | [string] | [symbol] | [Class] | [OpenApiSchemaObject];
+export type OpenApiSchemaInput =
+  | string
+  | symbol
+  | Class
+  | OpenApiSchemaObject
+  | [string]
+  | [symbol]
+  | [Class]
+  | [OpenApiSchemaObject];
+
+export type OpenApiXMLObject = {
+  name?: string;
+  namespace?: string;
+  prefix?: string;
+  attribute?: boolean;
+  wrapped?: boolean;
+};
 
 export type OpenApiSchemaObject = JSONSchemaObject & {
   example?: any;
   externalDocs?: OpenApiExternalDocumentObject;
   deprecated?: boolean;
   nullable?: boolean;
+  xml?: OpenApiXMLObject;
+  readOnly?: boolean;
+  writeOnly?: boolean;
 };
 
 export type OpenApiPathsObject = { [path: string]: OpenApiPathItemObject };
@@ -79,8 +98,6 @@ export type OpenApiParameterObject = {
   name: string;
   in: OpenApiParameterIn;
 
-  /** schema.type */
-  schemaType?: string;
   description?: string;
   required?: boolean;
   deprecated?: boolean;
