@@ -3,7 +3,10 @@ name: npm-publish
 # https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads
 # https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows
 on:
-  - workflow_dispatch
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
 
 jobs:
 
@@ -24,7 +27,12 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: "14"
-      - run: npm install && npm run build
+      - name: 'Print latest 5 git logs'
+        run: git log --branches --all --decorate --oneline -n 5
+      - name: 'Install and Build'
+        run: npm install && npm run build
+      - name: 'Test'
+        run: npm run test && ./test/gen-json.sh --install --silent --ci
       - uses: JS-DevTools/npm-publish@v1
         with:
           access: "public"
