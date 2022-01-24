@@ -1,5 +1,5 @@
 import type { Class } from "./base";
-import type { JSONSchemaObject } from "./json-schema";
+import type { JSONSchemaFormat, JSONSchemaObject } from "./json-schema";
 
 export type OpenApiRef = { $ref: unknown };
 
@@ -21,7 +21,40 @@ export type OpenApiXMLObject = {
   wrapped?: boolean;
 };
 
-export type OpenApiSchemaObject = JSONSchemaObject & {
+export type OpenApiSchemaFormat =
+  | JSONSchemaFormat
+  | "byte"
+  | "binary"
+  | "password"
+  | "int32"
+  | "int64"
+  | "float"
+  | "double";
+
+type DiffKeys =
+  | "format"
+  | "items"
+  | "prefixItems"
+  | "contains"
+  | "properties"
+  | "patternProperties"
+  | "allOf"
+  | "anyOf"
+  | "oneOf";
+
+export type OpenApiSchemaObject = Omit<JSONSchemaObject, DiffKeys> & {
+  //#region overwrite json schema
+  format?: OpenApiSchemaFormat;
+  items?: boolean | OpenApiSchemaObject;
+  prefixItems?: OpenApiSchemaObject[];
+  contains?: OpenApiSchemaObject;
+  properties?: { [x: string]: OpenApiSchemaObject };
+  patternProperties?: { [x: string]: OpenApiSchemaObject };
+  allOf?: OpenApiSchemaObject[];
+  anyOf?: OpenApiSchemaObject[];
+  oneOf?: OpenApiSchemaObject[];
+  //#endregion overwrite json schema
+
   example?: any;
   externalDocs?: OpenApiExternalDocumentObject;
   deprecated?: boolean;

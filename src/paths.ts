@@ -1,6 +1,7 @@
 import { OpenApiParametersManager, OpenApiResponsesManager, OpenApiSchemasManager } from "./components";
 import { ApplyParameterPriority, Class } from "./types/base";
 import type { JSONSchemaObject } from "./types/json-schema";
+import { mediaTypes } from "./types/media-types";
 import type {
   OpenApiExamplesMap,
   OpenApiExternalDocumentObject,
@@ -13,11 +14,11 @@ import type {
   OpenApiMediaTypeObject,
   OpenApiResponseObject,
   OpenApiSchemaObject,
+  OpenApiXMLObject,
 } from "./types/openapi";
 import type { DefaultOpenApiSchemaGetter } from "./types/openapi-extra";
 import { findOpenApiParamIndex, isRefObj, resolveOpenApiHeadersMap } from "./utils/base";
 
-const jsonMediaType = "application/json";
 const statusTextMap = new Map<string, string>([
   ["200", "OK"],
   ["2XX", "Successful"],
@@ -157,7 +158,7 @@ export class _OpenApiPathEditor {
       }
 
       if (!it.name) continue;
-      const schema: JSONSchemaObject = { type: "string", ...(it.schema || {}) };
+      const schema: OpenApiSchemaObject = { type: "string", ...(it.schema || {}) };
       push(
         resolveOpenApiParameter({
           ...it,
@@ -204,7 +205,7 @@ export class _OpenApiPathEditor {
       };
     }
 
-    content[jsonMediaType] = {
+    content[mediaTypes.json] = {
       schema,
       examples,
     };
@@ -217,12 +218,12 @@ export class _OpenApiPathEditor {
     const { content } = this.op.requestBody;
 
     const examples = { [exampleName]: exampleValue };
-    if (content[jsonMediaType]) {
-      const data = content[jsonMediaType] as OpenApiMediaTypeObject;
+    if (content[mediaTypes.json]) {
+      const data = content[mediaTypes.json] as OpenApiMediaTypeObject;
       if (data.examples) Object.assign(data.examples, examples);
       else data.examples = examples;
     } else {
-      content[jsonMediaType] = { schema: {}, examples };
+      content[mediaTypes.json] = { schema: {}, examples };
     }
     return this;
   };
@@ -258,9 +259,9 @@ export class _OpenApiPathEditor {
     } else {
       schema = {};
     }
-    resp.content[jsonMediaType] = { schema };
+    resp.content[mediaTypes.json] = { schema };
     if (exampleValue !== undefined && exampleValue !== null) {
-      (resp.content[jsonMediaType] as OpenApiMediaTypeObject).examples = {
+      (resp.content[mediaTypes.json] as OpenApiMediaTypeObject).examples = {
         default: {
           summary: "Example json response body",
           value: exampleValue,
@@ -269,6 +270,10 @@ export class _OpenApiPathEditor {
     }
     return this;
   };
+  textResponse = (statusCode: string, schema?: OpenApiSchemaObject) => {
+    const resp = this._initResponses(statusCode);
+    // wip
+  }
 
   responseHeaders = (statusCode: string, headers: OpenApiHeadersMap) => {
     const resp = this._initResponses(statusCode);

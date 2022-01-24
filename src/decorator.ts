@@ -20,18 +20,22 @@ export function OpenApiName(componentName: string) {
   return Reflect.metadata(MetadataKeys.componentName, componentName);
 }
 
+export const OpenApiProperty = OpenApiSchema;
 /** @alias OpenApiProperty */
 export function OpenApiSchema(schema?: OpenApiSchemaInput): any {
   return getSchemaDecorator(parseOpenApiSchemaInput(schema));
 }
 
-/** @alias OpenApiSchema */
-export function OpenApiProperty(schema?: OpenApiSchemaInput): any {
-  return getSchemaDecorator(parseOpenApiSchemaInput(schema));
-}
 
 export function OpenApiUUID(schema?: OpenApiSchemaObject) {
   schema = { type: "string", format: 'uuid', ...(schema || {}) };
+  return getSchemaDecorator(schema);
+}
+
+export const OpenApiFile = OpenApiBinary;
+/** @alias OpenApiFile */
+export function OpenApiBinary(schema?: OpenApiSchemaObject) {
+  schema = { type: "string", format: 'binary', ...(schema || {}) };
   return getSchemaDecorator(schema);
 }
 
