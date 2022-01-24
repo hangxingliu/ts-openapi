@@ -12,6 +12,8 @@ export { OpenApiTagsManager } from "./tags";
 export *  from "./decorator";
 
 export { SchemaGenerics, OptionsForResolveGenericClass, resolveGenericClass } from "./generics";
+export { derivedClass } from "./derived";
+
 export { getSchemaFromTypeORMColumn, resolveTypeORMEntityClass } from "./typeorm"
 export { TypeORMEntityTransformer } from "./typeorm/base"
 
