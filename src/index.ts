@@ -15,6 +15,7 @@ export { SchemaGenerics, OptionsForResolveGenericClass, resolveGenericClass } fr
 export { getSchemaFromTypeORMColumn, resolveTypeORMEntityClass } from "./typeorm"
 export { TypeORMEntityTransformer } from "./typeorm/base"
 
+export { mediaTypes, httpStatusTexts } from "./types/http";
 export * from "./types/base";
 export * from "./types/json-schema";
 export * from "./types/openapi";

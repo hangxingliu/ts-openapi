@@ -1,53 +1,38 @@
 import { OpenApiParametersManager, OpenApiResponsesManager, OpenApiSchemasManager } from "./components";
 import { ApplyParameterPriority, Class } from "./types/base";
 import type { JSONSchemaObject } from "./types/json-schema";
-import { mediaTypes } from "./types/media-types";
+import { httpStatusTexts, mediaTypes, validHttpMethods } from "./types/http";
 import type {
-  OpenApiExamplesMap,
   OpenApiExternalDocumentObject,
   OpenApiOperationObject,
   OpenApiParameterObject,
   OpenApiPathItemObject,
   OpenApiParameterIn,
   OpenApiPathsObject,
-  OpenApiHeadersMap,
   OpenApiMediaTypeObject,
   OpenApiResponseObject,
   OpenApiSchemaObject,
-  OpenApiXMLObject,
+  OpenApiHTTPStatusCode,
+  OpenApiHeaderObject,
+  OpenApiRequestBodyObject,
 } from "./types/openapi";
 import type { DefaultOpenApiSchemaGetter } from "./types/openapi-extra";
-import { findOpenApiParamIndex, isRefObj, resolveOpenApiHeadersMap } from "./utils/base";
+import { findOpenApiParamIndex, isRefObj } from "./utils/base";
+import { isClass } from "is-class";
+import { getOpenApiParameterFromHeader, resolveOpenApiHeadersMap } from "./utils/headers";
 
-const statusTextMap = new Map<string, string>([
-  ["200", "OK"],
-  ["2XX", "Successful"],
-  ["201", "Created"],
-  ["202", "Accepted"],
-  ["200", "OK"],
-  ["4XX", "Client Error"],
-  ["400", "Bad Request"],
-  ["401", "Unauthorized"],
-  ["403", "Forbidden"],
-  ["404", "Not Found"],
-  ["405", "Method Not Allowed"],
-  ["5XX", "Server Error"],
-  ["500", "Internal Server Error"],
-  ["502", "Bad Gateway"],
-  ["503", "Service Unavailable"],
-]);
-const validMethods = new Set([
-  //
-  "get",
-  "put",
-  "post",
-  "delete",
-  "options",
-  "head",
-  "patch",
-  "trace",
-  "use",
-]);
+type SetSpecialRequest = (
+  schema?: string | Class | OpenApiSchemaObject,
+  mediaObject?: Partial<OpenApiMediaTypeObject>,
+  mergeInfo?: Partial<Omit<OpenApiRequestBodyObject, "$ref">>
+) => _OpenApiPathEditor;
+
+type SetSpecialResponse = (
+  statusCode: OpenApiHTTPStatusCode,
+  schema?: string | Class | OpenApiSchemaObject,
+  mediaObject?: Partial<OpenApiMediaTypeObject>,
+  mergeInfo?: Partial<Omit<OpenApiResponseObject, "$ref">>
+) => _OpenApiPathEditor;
 
 export class _OpenApiPathEditor {
   /** @see https://swagger.io/specification/#path-item-object */
@@ -56,9 +41,9 @@ export class _OpenApiPathEditor {
 
   readonly warnings: Array<string>;
 
-  private schemasManager: OpenApiSchemasManager;
-  private parametersManager: OpenApiParametersManager;
-  private responsesManager: OpenApiResponsesManager;
+  private _schemasManager: OpenApiSchemasManager;
+  private _parametersManager: OpenApiParametersManager;
+  private _responsesManager: OpenApiResponsesManager;
   private defaultSchemaGetter: DefaultOpenApiSchemaGetter;
 
   constructor(
@@ -107,10 +92,22 @@ export class _OpenApiPathEditor {
     parameters?: OpenApiParametersManager;
     responses?: OpenApiResponsesManager;
   }) => {
-    if (managers.schemas) this.schemasManager = managers.schemas;
-    if (managers.parameters) this.parametersManager = managers.parameters;
-    if (managers.responses) this.responsesManager = managers.responses;
+    if (managers.schemas) this._schemasManager = managers.schemas;
+    if (managers.parameters) this._parametersManager = managers.parameters;
+    if (managers.responses) this._responsesManager = managers.responses;
   };
+  private get schemasManager() {
+    if (!this._schemasManager) throw new Error(`There is no OpenApiSchemasManager bound`);
+    return this._schemasManager;
+  }
+  private get parametersManager() {
+    if (!this._parametersManager) throw new Error(`There is no OpenApiParametersManager bound`);
+    return this._parametersManager;
+  }
+  private get responsesManager() {
+    if (!this._responsesManager) throw new Error(`There is no OpenApiResponsesManager bound`);
+    return this._responsesManager;
+  }
 
   baseInfo = (operationId: string, summary: string, description?: string) => {
     Object.assign(this.op, { operationId, summary, description });
@@ -169,121 +166,23 @@ export class _OpenApiPathEditor {
     }
     return this;
   };
+  setHeaders = (_headers: { [x: string]: OpenApiHeaderObject | OpenApiSchemaObject }, merge = false) => {
+    const headers = resolveOpenApiHeadersMap(_headers);
+    const headersMap = new Map(Object.keys(headers).map((key) => [key, headers[key]]));
 
-  private _initRequestBody = () => {
-    if (!this.op.requestBody) {
-      this.op.requestBody = {
-        required: true,
-        description: "Request payload",
-        content: {},
-      };
-    }
-  };
-
-  jsonRequest = (_ref: Array<string | Class>, exampleValue?: any) => {
-    this._initRequestBody();
-
-    const ref = _ref.map((it) => {
-      if (typeof it === "string") return it;
-      if (!this.schemasManager) throw new Error(`There is no OpenApiSchemasManager bound`);
-      return this.schemasManager.getRef(it);
+    let list = this.parameters;
+    if (!merge) list = list.filter((it) => isRefObj(it) || it.in !== "header");
+    this.op.parameters = list.map((it) => {
+      if (!isRefObj(it) && it.in === "header") {
+        const newHeader = headersMap.get(it.name);
+        if (newHeader) return getOpenApiParameterFromHeader(it.name, newHeader);
+      }
+      return it;
     });
-
-    const { content } = this.op.requestBody;
-    let schema: any;
-    if (ref?.length > 0) {
-      schema = ref.length > 1 ? { oneOf: ref.map(($ref) => ({ $ref })) } : { $ref: ref[0] };
-    } else {
-      schema = {};
-    }
-
-    const examples: OpenApiExamplesMap = {};
-    if (exampleValue !== undefined && exampleValue !== null) {
-      examples.default = {
-        summary: "Example json request payload",
-        value: exampleValue,
-      };
-    }
-
-    content[mediaTypes.json] = {
-      schema,
-      examples,
-    };
-    return this;
   };
-
-  addJsonRequestExample = (exampleName: string, exampleValue: any) => {
-    this._initRequestBody();
-
-    const { content } = this.op.requestBody;
-
-    const examples = { [exampleName]: exampleValue };
-    if (content[mediaTypes.json]) {
-      const data = content[mediaTypes.json] as OpenApiMediaTypeObject;
-      if (data.examples) Object.assign(data.examples, examples);
-      else data.examples = examples;
-    } else {
-      content[mediaTypes.json] = { schema: {}, examples };
-    }
-    return this;
-  };
-
-  private _initResponses = (statusCode: string) => {
-    if (!this.op.responses) {
-      this.op.responses = {};
-    }
-    const resps = this.op.responses;
-    if (!resps[statusCode])
-      resps[statusCode] = {
-        description: statusTextMap.get(statusCode) || statusCode,
-        content: {},
-      };
-    return resps[statusCode] as OpenApiResponseObject;
-  };
-
-  /**
-   * @param statusCode can be '2XX', '4XX', ...
-   */
-  jsonResponse = (statusCode: string, _ref: Array<string | Class>, exampleValue?: any) => {
-    const resp = this._initResponses(statusCode);
-
-    const ref = _ref.map((it) => {
-      if (typeof it === "string") return it;
-      if (!this.schemasManager) throw new Error(`There is no OpenApiSchemasManager bound`);
-      return this.schemasManager.getRef(it);
-    });
-
-    let schema: any;
-    if (ref?.length > 0) {
-      schema = ref.length > 1 ? { oneOf: ref.map(($ref) => ({ $ref })) } : { $ref: ref[0] };
-    } else {
-      schema = {};
-    }
-    resp.content[mediaTypes.json] = { schema };
-    if (exampleValue !== undefined && exampleValue !== null) {
-      (resp.content[mediaTypes.json] as OpenApiMediaTypeObject).examples = {
-        default: {
-          summary: "Example json response body",
-          value: exampleValue,
-        },
-      };
-    }
-    return this;
-  };
-  textResponse = (statusCode: string, schema?: OpenApiSchemaObject) => {
-    const resp = this._initResponses(statusCode);
-    // wip
-  }
-
-  responseHeaders = (statusCode: string, headers: OpenApiHeadersMap) => {
-    const resp = this._initResponses(statusCode);
-    resp.headers = resolveOpenApiHeadersMap(headers);
-    return this;
-  };
-
+  addHeader = (name: string, header?: OpenApiHeaderObject | OpenApiSchemaObject) =>
+    this.setHeaders({ [name]: header }, true);
   useParameterComponent = (nameOrGroupName: string, priority?: ApplyParameterPriority) => {
-    if (!this.parametersManager) throw new Error(`There is no OpenApiParametersManager bound`);
-
     const ps = this.parametersManager.get(nameOrGroupName);
     if (ps.length <= 0) return this;
 
@@ -304,15 +203,138 @@ export class _OpenApiPathEditor {
     return this;
   };
 
-  useResponseComponent = (name: string, priority?: ApplyParameterPriority) => {
-    if (!this.responsesManager) throw new Error(`There is no OpenApiResponsesManager bound`);
+  //
+  //#region request
+  //
+  private _initRequestBody = () => {
+    if (this.op.requestBody) return;
+    this.op.requestBody = { required: true, content: {} };
+    return this.op.requestBody;
+  };
+  setRequestBody = (
+    mediaType: string,
+    schema?: string | Class | OpenApiSchemaObject,
+    mediaObject?: Partial<OpenApiMediaTypeObject>
+  ) => {
+    const req = this._initRequestBody();
+    const object: OpenApiMediaTypeObject = { schema: {} };
+    if (typeof schema === "string") {
+      object.schema = { $ref: schema };
+    } else if (isClass(schema)) {
+      object.schema = { $ref: this.schemasManager.getRef(schema) };
+    } else if (schema) {
+      object.schema = schema as OpenApiSchemaObject;
+    }
+    if (mediaObject) Object.assign(object, mediaObject);
+    req.content[mediaType] = object;
+    return this;
+  };
+  setRequestInfo = (requestInfo: Partial<Omit<OpenApiRequestBodyObject, "$ref" | "content">>) => {
+    const req = this._initRequestBody();
+    const { description, required } = requestInfo;
+    if (description) req.description = description;
+    if (typeof required === "boolean") req.required = required;
+    return this;
+  };
+  setJsonRequest: SetSpecialRequest = (schema, mediaObject, mergeInfo) => {
+    this.setRequestBody(mediaTypes.json, schema, mediaObject);
+    if (mergeInfo) this.setRequestInfo(mergeInfo);
+    return this;
+  };
+  setTextRequest: SetSpecialRequest = (schema, mediaObject, mergeInfo) => {
+    this.setRequestBody(mediaTypes.text, schema, mediaObject);
+    if (mergeInfo) this.setRequestInfo(mergeInfo);
+    return this;
+  };
+  setXmlRequest: SetSpecialRequest = (schema, mediaObject, mergeInfo) => {
+    this.setRequestBody(mediaTypes.xml, schema, mediaObject);
+    if (mergeInfo) this.setRequestInfo(mergeInfo);
+    return this;
+  };
+  //
+  //#endregion request
+  //
 
+  //
+  //#region response
+  //
+  private _initResponses = (statusCode: OpenApiHTTPStatusCode) => {
+    if (!this.op.responses) {
+      this.op.responses = {};
+    }
+    const resps = this.op.responses;
+    const status = String(statusCode);
+    if (!resps[status]) {
+      resps[status] = {
+        description: httpStatusTexts.get(status) || status,
+        content: {},
+      };
+    }
+    return resps[statusCode] as OpenApiResponseObject;
+  };
+  setResponseInfo = (
+    statusCode: OpenApiHTTPStatusCode,
+    responseInfo?: Partial<Omit<OpenApiResponseObject, "$ref" | "content">>
+  ) => {
+    const resp = this._initResponses(statusCode);
+    if (responseInfo) {
+      const { description, headers, links } = responseInfo;
+      if (description) resp.description = description;
+      if (headers) resp.headers = Object.assign(resp.headers || {}, headers);
+      if (links) resp.links = Object.assign(resp.links || {}, links);
+    }
+    return this;
+  };
+  setResponseBody = (
+    statusCode: OpenApiHTTPStatusCode,
+    mediaType: string,
+    schema?: string | Class | OpenApiSchemaObject,
+    mediaObject?: Partial<OpenApiMediaTypeObject>
+  ) => {
+    const resp = this._initResponses(statusCode);
+    const object: OpenApiMediaTypeObject = { schema: {} };
+    if (typeof schema === "string") {
+      object.schema = { $ref: schema };
+    } else if (isClass(schema)) {
+      object.schema = { $ref: this.schemasManager.getRef(schema) };
+    } else if (schema) {
+      object.schema = schema as OpenApiSchemaObject;
+    }
+    if (mediaObject) Object.assign(object, mediaObject);
+    resp.content[mediaType] = object;
+    return this;
+  };
+  setResponseHeaders = (
+    statusCode: OpenApiHTTPStatusCode,
+    headers: { [x: string]: OpenApiHeaderObject | OpenApiSchemaObject },
+    merge = false
+  ) => {
+    const resp = this._initResponses(statusCode);
+    resp.headers = Object.assign((merge && resp.headers) || {}, resolveOpenApiHeadersMap(headers));
+    return this;
+  };
+  setJsonResponse: SetSpecialResponse = (statusCode, schema, mediaObject, mergeInfo) => {
+    this.setResponseInfo(statusCode, mergeInfo);
+    this.setResponseBody(statusCode, mediaTypes.json, schema, mediaObject);
+    return this;
+  };
+  setTextResponse: SetSpecialResponse = (statusCode, schema, mediaObject, mergeInfo) => {
+    this.setResponseInfo(statusCode, mergeInfo);
+    this.setResponseBody(statusCode, mediaTypes.text, schema, mediaObject);
+    return this;
+  };
+  setXmlResponse: SetSpecialResponse = (statusCode, schema, mediaObject, mergeInfo) => {
+    this.setResponseInfo(statusCode, mergeInfo);
+    this.setResponseBody(statusCode, mediaTypes.xml, schema, mediaObject);
+    return this;
+  };
+  setResponseComponent = (name: string, priority?: ApplyParameterPriority) => {
     const resp = this.responsesManager.get(name);
     if (!resp) return this;
 
     const ref = this.responsesManager.getRef(name);
     const resps = this.responses;
-    const existedStatusCode = new Set(Object.keys(resps));
+    const existedStatusCode = new Set<any>(Object.keys(resps));
     for (let i = 0; i < resp.status.length; i++) {
       const status = resp.status[i];
       if (existedStatusCode.has(status)) if (priority !== ApplyParameterPriority.HIGH) continue;
@@ -320,6 +342,10 @@ export class _OpenApiPathEditor {
     } // end of loop `for`
     return this;
   };
+  useResponseComponent = this.setResponseComponent;
+  //
+  //#endregion response
+  //
 }
 
 export type EditFuncInOpenApiPathsEditor = (
@@ -348,7 +374,7 @@ export class OpenApiPathsEditor {
     if (Array.isArray(opts?.pathParameters)) pathParameters = [...opts.pathParameters, ...pathParameters];
 
     method = String(method || "").toLowerCase();
-    if (!validMethods.has(method)) throw new Error(`Invalid http method "${method}" for OpenApiPathsEditor`);
+    if (!validHttpMethods.has(method)) throw new Error(`Invalid http method "${method}" for OpenApiPathsEditor`);
 
     let getter = opts?.defaultSchemaGetter;
     if (typeof getter !== "function") getter = undefined;
@@ -414,8 +440,8 @@ function resolveOpenApiParameter(param: OpenApiParameterObject) {
     delete param.schema.required;
   }
 
-  if (typeof param.required !== 'boolean') {
-    param.required = param.in === 'path';
+  if (typeof param.required !== "boolean") {
+    param.required = param.in === "path";
   }
 
   if (typeof param.deprecated !== "boolean" && deprecated === true) {

@@ -7,6 +7,7 @@ import type {
   OpenApiSecuritySchemeObject,
   OpenApiResponseObject,
   OpenApiSchemaObject,
+  OpenApiHTTPStatusCode,
 } from "./types/openapi";
 import { resolveTypeORMEntityClass } from "./typeorm";
 import { OpenApiResolvedFlags } from "./types/reflect-metadata";
@@ -18,7 +19,7 @@ import { isClass } from "is-class";
 export class OpenApiSchemasManager {
   private typeORMStorage: TypeORMMetadataArgsStorage;
   private typeORMTransformer: TypeORMEntityTransformer;
-  private readonly map = new Map<string, unknown>();
+  private readonly map = new Map<string, OpenApiSchemaObject>();
 
   useTypeORM(storage: TypeORMMetadataArgsStorage, transformer?: TypeORMEntityTransformer) {
     this.typeORMStorage = storage;
@@ -29,6 +30,11 @@ export class OpenApiSchemasManager {
     if (typeof name !== "string" || !name) name = getOpenApiNameFromClass(schemaObject);
     if (!this.map.has(name)) return this.add(schemaObject, name);
     return `#/components/schemas/${name}`;
+  }
+  get($ref: string): OpenApiSchemaObject {
+    const prefix = '#/components/schemas/';
+    if (!$ref.startsWith(prefix)) return null;
+    return this.map.get($ref.slice(prefix.length));
   }
 
   add(schemaObject: Class, schemaName?: string): string {
@@ -109,13 +115,19 @@ export class OpenApiParametersManager {
     }
     this.group.set(groupName, names);
   }
-  getComponents(): Partial<OpenApiComponentsObject> {
+  getComponents(schemasManager?: OpenApiSchemasManager): Partial<OpenApiComponentsObject> {
     const items = Array.from(this.map.entries()).sort((a, b) => {
       return a[0] > b[0] ? 1 : -1;
     });
     const parameters = {} as { [x: string]: OpenApiParameterObject };
     for (let i = 0; i < items.length; i++) {
       const [key, value] = items[i];
+      if (schemasManager) {
+        resolveOpenApiSchema(value, (ref) => {
+          if (isClass(ref)) return schemasManager.getRef(ref);
+          return null;
+        });
+      }
       parameters[key] = value;
     }
     return { parameters };
@@ -186,21 +198,28 @@ export class OpenApiResponsesManager {
     if (this.map.has(name)) return `#/components/responses/${name}`;
   }
 
-  add(name: string, resp: OpenApiResponseObject, statusCodes: string[], replace = false): string {
+  add(name: string, resp: OpenApiResponseObject, statusCodes: OpenApiHTTPStatusCode[], replace = false): string {
     if (this.map.has(name)) {
       if (!replace) return;
     }
     this.map.set(name, resp);
-    this.statusCode.set(name, statusCodes);
+    this.statusCode.set(name, statusCodes.map(it => String(it)));
     return `#/components/responses/${name}`;
   }
-  getComponents(): Partial<OpenApiComponentsObject> {
+
+  getComponents(schemasManager?: OpenApiSchemasManager): Partial<OpenApiComponentsObject> {
     const items = Array.from(this.map.entries()).sort((a, b) => {
       return a[0] > b[0] ? 1 : -1;
     });
     const responses = {} as { [x: string]: OpenApiResponseObject };
     for (let i = 0; i < items.length; i++) {
       const [key, value] = items[i];
+      if (schemasManager) {
+        resolveOpenApiSchema(value, (ref) => {
+          if (isClass(ref)) return schemasManager.getRef(ref);
+          return null;
+        });
+      }
       responses[key] = value;
     }
     return { responses };

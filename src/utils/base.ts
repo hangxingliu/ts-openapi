@@ -32,21 +32,3 @@ export function findOpenApiParamIndex(
 }
 
 
-export function resolveOpenApiHeader(header: OpenApiHeaderObject): OpenApiHeaderObject {
-  if (!header) return { schema: {} };
-  const result: OpenApiHeaderObject = header.schema || header.content ? {} : { schema: {} };
-  Object.assign(result, header);
-  return result;
-}
-
-
-export function resolveOpenApiHeadersMap(headers: OpenApiHeadersMap): OpenApiHeadersMap {
-  if (!headers) return {};
-  const keys = Object.keys(headers);
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    headers[key] = resolveOpenApiHeader(headers[key]);
-  }
-  return headers;
-}
-

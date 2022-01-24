@@ -3,6 +3,8 @@ import type { JSONSchemaFormat, JSONSchemaObject } from "./json-schema";
 
 export type OpenApiRef = { $ref: unknown };
 
+export type OpenApiHTTPStatusCode = number | "1XX" | "2XX" | "3XX" | "4XX" | "5XX" | "default";
+
 export type OpenApiSchemaInput =
   | string
   | symbol
@@ -114,12 +116,14 @@ export type OpenApiSecurityRequirementObject = {
 };
 
 export type OpenApiRequestBodyObject = {
-  description: string;
+  $ref?: string;
+  description?: string;
   content: OpenApiMediaTypesMap;
   required?: boolean;
 };
 
 export type OpenApiResponseObject = {
+  $ref?: string;
   description: string;
   headers?: OpenApiHeadersMap;
   content?: OpenApiMediaTypesMap;
