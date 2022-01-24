@@ -29,23 +29,29 @@ has_param() {
     return 1
 }
 
+NPM="$(command -v npm)";
+YARN="$(command -v yarn)";
+[ -n "$YARN" ] && NPM="$YARN";
+
 if has_param "--install" "${@}"; then
   while read -r file; do
+  [ -n "$NPM" ] || throw "'npm' and 'yarn' are not found";
     dir="$(dirname "$file")";
     pushd "$dir" || exit 1;
     echo "[.] Installing packages for '$dir'";
-    npm install || throw "Install package failed!";
+    "$NPM" install || throw "Install package failed!";
     popd || exit 1;
   done <<< "$(find_package)"
 fi
 
 while read -r file; do
   echo "[.] Executing '$file'";
+  [ -n "$NPM" ] || throw "'npm' and 'yarn' are not found";
   file="$(realpath "$file")";
   if has_param "--silent" "${@}"; then
-    npm run ts -- "${file}" >/dev/null || throw "Test failed!";
+    "$NPM" run ts -- "${file}" >/dev/null || throw "Test failed!";
   else
-    npm run ts -- "${file}" || throw "Test failed!";
+    "$NPM" run ts -- "${file}" || throw "Test failed!";
   fi
 done <<< "$(find_entrypoints)"
 
