@@ -207,8 +207,8 @@ export class _OpenApiPathEditor {
   //#region request
   //
   private _initRequestBody = () => {
-    if (this.op.requestBody) return;
-    this.op.requestBody = { required: true, content: {} };
+    if (!this.op.requestBody)
+      this.op.requestBody = { required: true, content: {} };
     return this.op.requestBody;
   };
   setRequestBody = (
@@ -223,7 +223,7 @@ export class _OpenApiPathEditor {
     } else if (isClass(schema)) {
       object.schema = { $ref: this.schemasManager.getRef(schema) };
     } else if (schema) {
-      object.schema = schema as OpenApiSchemaObject;
+      object.schema = this._schemasManager ? this._schemasManager.resolve(schema) : schema;
     }
     if (mediaObject) Object.assign(object, mediaObject);
     req.content[mediaType] = object;
@@ -298,7 +298,7 @@ export class _OpenApiPathEditor {
     } else if (isClass(schema)) {
       object.schema = { $ref: this.schemasManager.getRef(schema) };
     } else if (schema) {
-      object.schema = schema as OpenApiSchemaObject;
+      object.schema = this._schemasManager ? this._schemasManager.resolve(schema) : schema;
     }
     if (mediaObject) Object.assign(object, mediaObject);
     resp.content[mediaType] = object;

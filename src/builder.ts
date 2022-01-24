@@ -62,7 +62,7 @@ export class OpenAPIDocumentBuilder {
       refName = `Parameter__${parameterName}_${refName}`;
       param.schema = { $ref: this.schemas.getRef(schema, refName) };
     } else if (schema) {
-      param.schema = schema as OpenApiSchemaObject;
+      param.schema = this.schemas.resolve(schema);
     }
     return this.parameters.add(parameterName, param);
   };
@@ -84,7 +84,7 @@ export class OpenAPIDocumentBuilder {
       refName = `Response__${componentName}_${refName}`;
       media.schema = { $ref: this.schemas.getRef(schema, refName) };
     } else if (schema) {
-      media.schema = schema as OpenApiSchemaObject;
+      media.schema = this.schemas.resolve(schema);
     }
     if (mediaObject) Object.assign(media, mediaObject);
     resp.content[mediaType] = media;

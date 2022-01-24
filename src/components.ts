@@ -36,6 +36,13 @@ export class OpenApiSchemasManager {
     if (!$ref.startsWith(prefix)) return null;
     return this.map.get($ref.slice(prefix.length));
   }
+  resolve(schema: OpenApiSchemaObject) {
+    resolveOpenApiSchema(schema, (ref) => {
+      if (isClass(ref)) return this.getRef(ref);
+      return null;
+    });
+    return schema;
+  }
 
   add(schemaObject: Class, schemaName?: string): string {
     const originalName = getOpenApiNameFromClass(schemaObject);
@@ -57,10 +64,7 @@ export class OpenApiSchemasManager {
     Object.assign(schema, result.schema);
     this.map.set(schemaName, schema);
 
-    resolveOpenApiSchema(schema, (ref) => {
-      if (isClass(ref)) return this.getRef(ref);
-      return null;
-    });
+    this.resolve(schema);
     return `#/components/schemas/${schemaName}`;
   }
 
