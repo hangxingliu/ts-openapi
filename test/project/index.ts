@@ -50,4 +50,4 @@ document
 const json = document.build();
 // console.log(json);
 
-writeFileSync(resolvePath(__dirname, "swagger.json"), JSON.stringify(json, null, 2));
+writeFileSync(resolvePath(__dirname, "swagger.json"), JSON.stringify(json, null, 2) + '\n');

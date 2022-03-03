@@ -51,7 +51,7 @@ export type JSONSchemaObject = {
 
   title?: string;
   description?: string;
-  type?: JSONSchemaType;
+  type?: JSONSchemaType | JSONSchemaType[];
   enum?: any[];
   const?: any;
   default?: any;
@@ -77,7 +77,7 @@ export type JSONSchemaObject = {
   //#region object
   properties?: { [x: string]: JSONSchemaObject };
   patternProperties?: { [x: string]: JSONSchemaObject };
-  additionalProperties?: number;
+  additionalProperties?: boolean | JSONSchemaObject;
   minItems?: number;
   maxItems?: number;
   propertyNames?: { pattern: string };
