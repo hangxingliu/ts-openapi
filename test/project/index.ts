@@ -5,7 +5,10 @@ import { OpenApiSchemasManager, resolveGenericClass, OpenAPIDocumentBuilder, med
 import { ListResults, User } from "./entities";
 import { NotFoundResponse } from "./responses";
 
-const document = new OpenAPIDocumentBuilder(require("../../package.json"));
+const pkgJSON = require("../../package.json");
+pkgJSON.version = '1.0.0';
+
+const document = new OpenAPIDocumentBuilder(pkgJSON);
 document.tags.add({ name: "User", description: "APIs for manage users", externalDocs: { url: "https://github.com" } });
 
 const ListUserResults = resolveGenericClass(ListResults, [User]);

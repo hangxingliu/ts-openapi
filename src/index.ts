@@ -9,13 +9,15 @@ export {
 } from "./components";
 export { OpenApiTagsManager } from "./tags";
 
-export *  from "./decorator";
+export * from "./decorator";
 
 export { SchemaGenerics, OptionsForResolveGenericClass, resolveGenericClass } from "./generics";
 export { derivedClass } from "./derived";
 
-export { getSchemaFromTypeORMColumn, resolveTypeORMEntityClass } from "./typeorm"
-export { TypeORMEntityTransformer } from "./typeorm/base"
+export { getSchemaFromClassMetadata } from "./utils/class-metadata-to-schema";
+
+export { getSchemaFromTypeORMColumn, resolveTypeORMEntityClass } from "./typeorm";
+export { TypeORMEntityTransformer } from "./typeorm/base";
 
 export { mediaTypes, httpStatusTexts } from "./types/http";
 export * from "./types/base";
